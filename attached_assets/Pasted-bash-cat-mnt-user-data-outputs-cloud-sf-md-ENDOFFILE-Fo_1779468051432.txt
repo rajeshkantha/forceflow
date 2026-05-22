@@ -1,0 +1,1289 @@
+bash
+
+cat > /mnt/user-data/outputs/cloud-sf.md << 'ENDOFFILE'
+# ForceFlow — Full Platform Plan
+**Multi-Tenant Salesforce Automation Platform · AI-Native DevOps · SDLC Acceleration**
+
+> **Goal:** Compress the Salesforce SDLC from weeks to hours by combining an AI configuration agent, automated CI/CD pipelines, intelligent code quality gates, and an autonomous QA testing agent — all from a single multi-tenant platform where companies onboard, configure their orgs, and run role-based AI agents scoped entirely to their context.
+
+---
+
+## Table of Contents
+
+1. [Vision & North Star](#vision)
+2. [Multi-Tenancy Architecture](#multi-tenancy)
+3. [Company Onboarding Flow](#onboarding)
+4. [V1 — Foundation](#v1-foundation)
+5. [V2 — Multi-Tenant · Role-Based Agents · Frontier Role · Smart Agent Intelligence](#v2-agents)
+6. [V3 — Git Pipeline & SDLC Engine](#v3-pipeline)
+7. [V4 — Code Quality & Static Analysis](#v4-quality)
+8. [V5 — Autonomous QA Testing Agent](#v5-qa)
+9. [V6 — Analytics, Governance & Enterprise](#v6-enterprise)
+10. [Plan & Execute Mode — How All Dev Requests Work](#plan-execute)
+11. [Smart Agent Intelligence Layer](#agent-intelligence)
+12. [Architecture Overview](#architecture)
+13. [Data Model (Full)](#data-model)
+14. [SDLC Time Reduction Strategy](#sdlc-strategy)
+15. [Technology Stack](#tech-stack)
+16. [Iteration Roadmap Summary](#roadmap)
+
+---
+
+## 1. Vision & North Star {#vision}
+
+Salesforce teams today face three brutal bottlenecks:
+
+- **Dev time** — writing Apex, configuring metadata, and setting up validations manually takes days per feature.
+- **Deployment time** — manual change sets, environment drift, and approval chains stretch releases to weeks.
+- **Testing time** — writing test classes, running regression manually, and chasing 75% code coverage is a recurring tax.
+
+ForceFlow eliminates all three. It is a **company-scoped, multi-tenant platform** where each company (tenant) brings their own Salesforce orgs, their own team, and their own model configuration. A Frontier-role user (the company's super-admin) onboards the company, connects orgs, and invites role-based agent users. Every AI agent operates with full awareness of that company's Salesforce implementation — not generic Salesforce knowledge.
+
+**Target outcome:** A feature that takes a Salesforce developer 3 days of dev + 2 days of deployment + 1 day of QA completes in under 4 hours on ForceFlow.
+
+**Every development request goes through Plan → Approve → Execute.** No agent ever mutates a Salesforce org without a human-reviewed plan.
+
+---
+
+## 2. Multi-Tenancy Architecture {#multi-tenancy}
+
+### Tenant = Company
+
+ForceFlow is a **company-scoped SaaS platform**. Every resource — orgs, users, model configs, chat threads, pipelines, agent memory — belongs to a `tenant` (company). Users belong to one tenant. Data is never shared across tenants.
+
+### Isolation Model
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  TENANT: Acme Corp (tenant_id = abc123)                         │
+│                                                                  │
+│  Users: alice@acme.com (Frontier), bob@acme.com (Developer),   │
+│         carol@acme.com (Sales), dave@acme.com (Support)         │
+│                                                                  │
+│  Orgs: Acme Production, Acme UAT, Acme Dev Sandbox             │
+│  Model Config: Anthropic claude-sonnet-4 (tenant-level BYOK)   │
+│  Pipelines, chat threads, QA plans — all scoped to tenant       │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│  TENANT: BetaCo (tenant_id = def456)                            │
+│  — completely isolated, no data overlap —                       │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### RLS Policy
+
+Every database table carries `tenant_id`. Row-Level Security enforces:
+
+```sql
+-- Example policy on salesforce_orgs
+CREATE POLICY tenant_isolation ON salesforce_orgs
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+```
+
+The `current_tenant_id` is set per request from the verified JWT claim. No query can ever return rows from another tenant.
+
+### Subdomain Routing (Optional, V6)
+
+Tenants can optionally get `acme.forceflow.app` — a subdomain that auto-scopes the session to their tenant. Custom domain support available in Enterprise tier.
+
+---
+
+## 3. Company Onboarding Flow {#onboarding}
+
+### Overview
+
+When a new company signs up, the first user (who becomes the **Frontier** / super-admin) goes through a structured onboarding wizard before reaching the product. This collects the company context that all AI agents will use throughout the lifetime of the tenant.
+
+### Onboarding Wizard — Step by Step
+
+```
+Step 1: Account Creation
+  ├── Email + password
+  ├── Full name
+  └── Accept terms of service
+
+Step 2: Company Profile
+  ├── Company name (e.g. "Acme Corp")
+  ├── Company website (optional, used for org labeling)
+  ├── Industry vertical
+  │     [Manufacturing] [Financial Services] [Healthcare]
+  │     [Retail / CPG]  [Technology]         [Non-Profit]
+  │     [Professional Services]              [Other]
+  ├── Company size
+  │     [1–50 employees] [51–500] [501–5000] [5000+]
+  ├── Salesforce Clouds in use (multi-select)
+  │     [Sales Cloud] [Service Cloud] [Experience Cloud]
+  │     [CPQ / Revenue Cloud] [Marketing Cloud] [Field Service]
+  │     [Health Cloud] [Financial Services Cloud] [Custom / Other]
+  └── Brief description of what your Salesforce org does
+        (free text, 2–5 sentences — this seeds agent system prompts)
+
+Step 3: Salesforce Org Setup
+  ├── "Connect your first Salesforce org"
+  ├── Org label (e.g. "Production", "Main Org")
+  ├── Org type: [Production] [Sandbox] [Developer Edition] [Scratch Org]
+  ├── Login URL: [login.salesforce.com] [test.salesforce.com] [Custom domain]
+  ├── Connected App Client ID + Client Secret
+  │     (with inline guide: "How to create a Connected App →")
+  └── OAuth redirect + Connect button → SF OAuth flow
+
+Step 4: Model Configuration
+  ├── "Choose how your AI agents are powered"
+  ├── Provider: [OpenAI] [Anthropic] [OpenRouter] [Custom Endpoint]
+  ├── API Key (encrypted at rest)
+  ├── Model name (with recommended defaults per provider)
+  └── Test connection → shows "Model ready ✓"
+
+Step 5: Invite Your Team (optional, skip-able)
+  ├── Enter email addresses
+  ├── Assign initial role per invite:
+  │     [Frontier] [Developer] [Sales] [Support] [SME]
+  └── Send invites → invited users land on Step 1 with tenant pre-filled
+
+Step 6: Done → Dashboard
+  └── "Welcome to ForceFlow, Acme Corp. Your agents are ready."
+```
+
+### What Onboarding Data Powers
+
+The company profile collected in Step 2 is stored in `tenant_context` and injected into every agent's system prompt as a preamble:
+
+```
+You are a Salesforce AI agent working for Acme Corp, a manufacturing 
+company with 500–5000 employees. They use Sales Cloud, Service Cloud, 
+and CPQ. Their Salesforce org manages B2B sales pipeline, field service 
+work orders, and customer support cases for industrial equipment. 
+Always ground your analysis and recommendations in this business context.
+```
+
+This makes every agent — Sales, Support, SME, Frontier — contextually aware of the company without the user having to re-explain it in every conversation.
+
+---
+
+## 4. V1 — Foundation {#v1-foundation}
+
+### What Ships
+
+**Account & Workspace**
+- Email/password signup + signin (Lovable Cloud auth).
+- Tenant created on first signup; all subsequent users join via invite.
+- All resources RLS-scoped to `tenant_id`.
+
+**Salesforce Org Connections (Multi-Org per Tenant)**
+- Add orgs via Salesforce OAuth 2.0 Web Server flow with PKCE.
+- Each org belongs to the tenant, visible to all tenant members (per their role).
+- Tokens stored AES-256-GCM encrypted, auto-refreshed on expiry.
+- Org list page: status indicator, instance URL, username, last sync, org type badge, delete/reconnect.
+
+**Model Configuration (Tenant-Level BYOK)**
+- Add one or more model providers: OpenAI, Anthropic, or custom OpenAI-compatible endpoint.
+- Model configs belong to the tenant; Frontier manages them, all agents use them.
+- Keys stored encrypted server-side; never exposed to the client.
+
+**Configuration Agent (Chat)**
+- Chat UI with thread list, streaming responses, and tool-call rendering with before/after diffs.
+- Org + model selectors per thread.
+- Agent tools (Salesforce REST / Tooling / Metadata API):
+  - `sf_soql_query` — read data and metadata
+  - `sf_describe_object` — inspect object schema
+  - `sf_list_metadata` — list components by type
+  - `sf_read_metadata` — read metadata XML
+  - `sf_create_custom_field` — add fields to objects
+  - `sf_create_validation_rule` — create validation rules
+  - `sf_assign_permission_set` — assign permission sets to users
+  - `sf_deploy_metadata` — generic metadata deploy (confirmation gate)
+- All mutating tools require explicit user approval before execution.
+
+**Dashboard**
+- Tenant-scoped: connected orgs count, team members, active model, recent threads, quick-prompt suggestions.
+
+### Routes
+
+```
+/                         dashboard (tenant-scoped)
+/login                    auth (email + password)
+/onboarding               company onboarding wizard (new tenants)
+/onboarding/invite        accept invite + set password
+/orgs                     org list + add-org wizard
+/orgs/connect             Connected App credential intake + OAuth redirect
+/models                   model provider config (Frontier only)
+/team                     team member list + invite (Frontier only)
+/chat                     thread list + new chat
+/chat/$threadId           agent chat
+```
+
+### Data Model (V1)
+
+```sql
+tenants (
+  id uuid PRIMARY KEY,
+  name text NOT NULL,                  -- "Acme Corp"
+  slug text UNIQUE,                    -- "acme-corp" (subdomain candidate)
+  website text,
+  industry text,
+  company_size text,
+  sf_clouds text[],                    -- ['sales', 'service', 'cpq', ...]
+  org_description text,                -- free-text from onboarding Step 2
+  created_at timestamptz
+)
+
+tenant_members (
+  id uuid,
+  tenant_id uuid references tenants,
+  user_id uuid references auth.users,
+  role text NOT NULL,                  -- frontier | developer | sales | support | sme
+  invited_by uuid,
+  joined_at timestamptz
+)
+
+salesforce_orgs (
+  id uuid,
+  tenant_id uuid references tenants,
+  label text,
+  instance_url text,
+  login_url text,
+  org_type text,                       -- production | sandbox | developer | scratch
+  username text,
+  client_id text,
+  client_secret_enc text,
+  access_token_enc text,
+  refresh_token_enc text,
+  expires_at timestamptz,
+  last_sync timestamptz,
+  status text,                         -- connected | disconnected | error
+  created_at timestamptz
+)
+
+model_configs (
+  id uuid,
+  tenant_id uuid references tenants,
+  label text,
+  provider text,
+  base_url text,
+  api_key_enc text,
+  model_name text,
+  is_default boolean
+)
+
+chat_threads (
+  id uuid,
+  tenant_id uuid,
+  user_id uuid,
+  title text,
+  role text,
+  org_id uuid references salesforce_orgs,
+  model_id uuid references model_configs,
+  created_at timestamptz
+)
+
+chat_messages (
+  id uuid,
+  thread_id uuid,
+  role text,
+  parts jsonb,
+  created_at timestamptz
+)
+```
+
+All tables: RLS policy `tenant_id = current_setting('app.current_tenant_id')::uuid`.
+
+---
+
+## 5. V2 — Multi-Tenant · Role-Based Agents · Frontier Role · Smart Agent Intelligence {#v2-agents}
+
+### 5.1 Extended Model Providers
+
+- `openrouter` — base URL pinned to `https://openrouter.ai/api/v1`, free-form model slug.
+- `aggregator` — user-supplied base URL + model slug (Together AI, Groq, Fireworks, LiteLLM, vLLM, etc.).
+- Both reuse `createOpenAICompatible`; OpenRouter adds `HTTP-Referer` / `X-Title` headers.
+
+### 5.2 Role-Based Agents — Full Roster
+
+Each user in a tenant is assigned a role. The role determines which agent they access, what tools are exposed, and what the system prompt says. Roles are **not just UI labels** — they are full agent personas with dedicated tool surfaces, refusal patterns, and cross-role handoff instructions.
+
+#### Role: Frontier (Super-Admin / Power User)
+
+The Frontier role replaces "Developer" as the highest-privilege agent. The Frontier user is the company's Salesforce owner — typically an architect, lead admin, or CTO. They can do everything any other role can do, plus:
+
+- **Onboard and manage all team members** — invite users, assign roles, revoke access.
+- **Manage all org connections** — add, reconnect, delete orgs.
+- **Manage model configuration** — set tenant-wide AI provider and keys.
+- **Access all agent roles** — can switch to Sales, Support, SME, or Developer agent context in any thread.
+- **Approve production deployments** — only Frontier can approve the final pipeline gate to Production.
+- **View audit log** — full record of every action every team member has taken.
+- **Org governance** — org health dashboard, drift detection, dead code reports.
+
+The Frontier agent system prompt:
+
+```
+You are the Frontier Agent for {company_name}. You have full access to 
+all Salesforce orgs, all configuration tools, and all team management 
+functions. You are the most senior AI agent on this platform. 
+You think in terms of architecture, long-term maintainability, and 
+business outcomes. Before executing any mutating action, you generate 
+a detailed plan and require explicit approval. You also oversee the 
+team — you can onboard agents, assign roles, and see everything.
+```
+
+**Frontier-exclusive tools:**
+- `tenant_invite_user` — send invite to a new team member with a specified role
+- `tenant_list_members` — list all team members + roles + last active
+- `tenant_update_member_role` — change a user's role
+- `tenant_revoke_member` — remove a user from the tenant
+- `tenant_org_health_report` — generate cross-org health summary
+- `tenant_audit_log` — query audit log for any actor/action
+- All tools from Developer + SME + Sales + Support roles
+
+#### Role: Developer
+
+Configuration and code changes. The technical implementor.
+
+**Tools:** `sf_soql_query`, `sf_describe_object`, `sf_list_metadata`, `sf_read_metadata`, `sf_explain_validation_rules`, `sf_explain_flow`, `sf_sharing_check`, `sf_create_custom_field`, `sf_create_validation_rule`, `sf_assign_permission_set`, `sf_deploy_metadata`, `sf_apex_execute`, `sf_run_anonymous`, `sf_create_apex_class`, `sf_create_lwc`, `sf_create_flow`, `sf_create_trigger`
+
+**Refusal pattern:** Declines user management and org connection tasks; directs to Frontier.
+
+#### Role: Sales Agent
+
+Pipeline, opportunities, quotes, leads, follow-ups, daily data work.
+
+**Tools:** `sf_soql_query`, `sf_create_record`, `sf_update_record`, `sf_create_opportunity`, `sf_create_quote`, `sf_create_task`, `sf_log_call`, `sf_send_email_template`, `sf_get_my_pipeline`, `sf_lead_followup`, `sf_dedupe_merge`, `sf_forecast_summary`
+
+**Refusal pattern:** Declines all metadata/config changes; suggests Developer or Frontier agent.
+
+#### Role: Support Agent
+
+Cases, knowledge articles, SLAs, escalations, customer satisfaction.
+
+**Tools:** `sf_soql_query`, `sf_create_case`, `sf_update_case`, `sf_post_case_comment`, `sf_search_knowledge`, `sf_escalate_case`, `sf_sla_check`, `sf_create_entitlement`, `sf_close_case`
+
+**Refusal pattern:** Declines schema changes; suggests SME for "why" questions, Developer for fixes.
+
+#### Role: SME Agent (Subject Matter Expert)
+
+Read-only deep expertise. The "explain everything" agent.
+
+**Tools (all read-only):** `sf_soql_query`, `sf_describe_object`, `sf_list_metadata`, `sf_read_metadata`, `sf_explain_validation_rules`, `sf_explain_flow`, `sf_sharing_check`, `sf_tooling_query`, `sf_dependency_query`, `sf_explain_trigger`, `sf_explain_apex_class`
+
+**Refusal pattern:** Never mutates. Declines all write operations; suggests Developer for changes.
+
+### 5.3 User Onboarding by Frontier — In-App Flow
+
+The Frontier user can invite teammates directly from the `/team` page or from within a chat via the Frontier agent:
+
+```
+Frontier: "Invite sarah@acme.com as a Support Agent"
+Agent:    [calls tenant_invite_user]
+          → Plan: "Send invite to sarah@acme.com with role=support.
+                   She will receive an email with a signup link 
+                   pre-scoped to Acme Corp tenant."
+          → [User approves]
+          → Invite sent. Sarah lands on /onboarding/invite, sets 
+            password, and immediately has Support Agent access.
+```
+
+Invited users skip the company onboarding wizard (Steps 2–4) — their tenant context is inherited. They only set their name and password.
+
+### 5.4 Org Carousel (Chat Header)
+
+Replace the org `<select>` with a horizontal chip carousel:
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│ [‹] [● Prod] [○ UAT] [○ Dev Sandbox] [○ QA-INT] [›]  [+Add Org] │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+- Shows 3–4 orgs at a time; responsive (3 on small viewports, 4 on wider).
+- Active org = electric indigo accent ring; disconnected = dimmed with warning icon.
+- `+Add Org` visible only to Frontier role.
+- Click a chip → updates `thread.org_id` and re-scopes agent context.
+
+### 5.5 Smart Agent Intelligence — Business Requirement Analysis
+
+This is the core intelligence differentiator. When a user describes a business requirement (new feature, process change, or problem), the agent does not jump to implementation. It first **interrogates the current org state**, produces an analysis, and then generates a plan.
+
+See full details in [Section 11: Smart Agent Intelligence Layer](#agent-intelligence).
+
+### 5.6 New-Chat Modal
+
+```
+New Chat
+├── 1. Select Role (if Frontier: all roles; else: pre-set to user's role)
+│         [Frontier ◆]  [Developer ⚙]  [Sales 📈]  [Support 🎧]  [SME 🔍]
+├── 2. Select Org
+│         [Acme Production]  [Acme UAT]  [Acme Dev Sandbox]
+├── 3. Select Model (inherits tenant default, overridable)
+└── 4. Thread title (optional, auto-generated from first message)
+```
+
+### 5.7 Data Model Delta (V2)
+
+```sql
+-- Tenant context (replaces per-user workspace concept from V1)
+-- tenant_members already has role column from V1
+
+-- Add invite tracking
+tenant_invites (
+  id uuid,
+  tenant_id uuid references tenants,
+  email text,
+  role text,
+  invited_by uuid references auth.users,
+  token text UNIQUE,                  -- signed token in invite link
+  accepted_at timestamptz,
+  expires_at timestamptz,
+  created_at timestamptz
+)
+
+-- Agent analysis & planning (see Section 11)
+agent_analyses (
+  id uuid,
+  tenant_id uuid,
+  thread_id uuid,
+  org_id uuid,
+  requirement_summary text,
+  current_state_analysis jsonb,       -- what exists, coverage %, components
+  gap_analysis jsonb,                 -- what's missing vs requirement
+  implementation_plan jsonb,          -- ordered steps with effort estimates
+  status text,                        -- draft | approved | executing | done
+  created_by uuid,
+  approved_by uuid,
+  approved_at timestamptz,
+  created_at timestamptz
+)
+
+-- Update chat_threads role constraint
+ALTER TABLE chat_threads
+  DROP CONSTRAINT IF EXISTS chat_threads_role_check;
+ALTER TABLE chat_threads
+  ADD CONSTRAINT chat_threads_role_check
+    CHECK (role IN ('frontier', 'developer', 'sales', 'support', 'sme'));
+```
+
+---
+
+## 6. V3 — Git Pipeline & SDLC Engine {#v3-pipeline}
+
+### Overview
+
+The core SDLC acceleration layer. Git-backed environment promotion pipeline (Dev → QA → UAT → Production) with automated deployments triggered by branch events, and deep Jira/Linear ticket integration.
+
+### Git Integration (GitHub / GitLab / Bitbucket)
+
+- Connect a repository per Salesforce project (Frontier manages connections).
+- Branch strategy enforced by ForceFlow:
+  - `feature/*` → Developer sandbox
+  - `qa` → QA sandbox
+  - `uat` → UAT sandbox
+  - `main` → Production
+- Pull request events trigger automated pipeline runs.
+- Salesforce metadata stored in SFDX project format (source-tracked, version-controlled).
+
+### Pipeline Stages
+
+```
+[Feature Branch] → PR Opens
+        ↓
+[Stage 1] Static Analysis (PMD + ESLint + Flow Scanner) — blocks on CRITICAL violations
+        ↓
+[Stage 2] Deploy to Developer Sandbox — validate-only first, then deploy
+        ↓
+[Stage 3] Run Apex Tests — 75% coverage gate + all specified tests pass
+        ↓
+[Stage 4] PR Merge → qa branch
+        ↓
+[Stage 5] Auto-deploy to QA Sandbox
+        ↓
+[Stage 6] QA Agent Smoke Tests (V5)
+        ↓
+[Stage 7] Promote to UAT — Frontier approval gate (1-click)
+        ↓
+[Stage 8] UAT sign-off → merge to main
+        ↓
+[Stage 9] Production Deploy — Frontier approval required — with rollback plan
+```
+
+### Deployment Strategies
+
+- **Validate-Only First:** Check-only deploy before real deploy; halts with diff on failure.
+- **Delta Deployments:** `sfdx-git-delta` computes only changed components — cuts deploy time from 15–20 min to under 2 min for small changesets.
+- **Rollback:** Pre-deployment snapshot stored; one-click redeploys prior known-good state.
+- **Unlocked Packages (optional):** Package version promotion for DX-native projects.
+
+### Ticket Integration (Jira / Linear)
+
+- Link runs to tickets via commit convention: `[PROJ-123]` or `closes #42`.
+- Auto-update ticket status as pipeline progresses.
+- Attach deployment logs + test results as ticket comments.
+- Release notes auto-generated from ticket titles in a merge window.
+
+### Data Model Delta (V3)
+
+```sql
+git_connections (
+  id uuid, tenant_id uuid, provider text, repo_url text,
+  default_branch text, branch_map jsonb,
+  webhook_secret_enc text, access_token_enc text
+)
+
+pipeline_runs (
+  id uuid, tenant_id uuid, git_connection_id uuid,
+  trigger_type text, branch text, commit_sha text,
+  commit_message text, stages jsonb, status text,
+  created_at timestamptz, completed_at timestamptz
+)
+
+deployment_snapshots (
+  id uuid, pipeline_run_id uuid, org_id uuid,
+  components jsonb, created_at timestamptz
+)
+
+ticket_links (
+  id uuid, pipeline_run_id uuid, provider text,
+  ticket_id text, ticket_url text
+)
+```
+
+---
+
+## 7. V4 — Code Quality & Static Analysis {#v4-quality}
+
+### Analysis Engines
+
+| Tool | Scope | Integration |
+|---|---|---|
+| **PMD (Apex)** | SOQL in loops, DML in loops, governor limit risks, security violations | CI pipeline; violations annotated on PR diff |
+| **ESLint (LWC/Aura)** | JS quality, accessibility, security patterns | CI pipeline |
+| **Flow Scanner** | Hardcoded IDs, missing null checks, bulkification in Flows | CI pipeline |
+| **Salesforce Code Analyzer v5** | Unified runner (440+ rules, PMD + ESLint + RetireJS); AI quick-fix via ApexGuru | Available April 2025 |
+| **Security Scan** | Hardcoded credentials, SOQL injection, XSS in LWC | Part of Code Analyzer v5 |
+
+### Violation Severity Gates
+
+```
+CRITICAL (blocks merge):
+  - SOQL/DML inside loops
+  - Hardcoded IDs or credentials
+  - Empty catch blocks
+  - Missing sharing keyword on Apex classes
+
+HIGH (blocks merge, suppressible with justification):
+  - Methods > 200 lines
+  - Cyclomatic complexity > 20
+  - No bulk handling in triggers
+
+MEDIUM (warns, does not block):
+  - Unused variables, missing null checks
+
+LOW (informational):
+  - Style inconsistencies, missing comments
+```
+
+### AI Quick-Fix
+
+For CRITICAL and HIGH violations, ForceFlow offers "AI Fix" — the Developer/Frontier agent generates a corrected version for review. One-click apply commits the fix to the branch.
+
+### Coverage Enforcement
+
+- Minimum 75% Apex code coverage (platform minimum); ForceFlow default is 85% (configurable).
+- Test gap analysis surfaces which classes/methods have no coverage.
+- AI Test Generation: Developer/Frontier agent generates Apex test class skeletons on demand.
+
+### Data Model Delta (V4)
+
+```sql
+quality_reports (
+  id uuid, tenant_id uuid, pipeline_run_id uuid,
+  violations jsonb, coverage_pct numeric,
+  score_letter text, created_at timestamptz
+)
+```
+
+---
+
+## 8. V5 — Autonomous QA Testing Agent {#v5-qa}
+
+### How It Works
+
+1. After each deployment to QA sandbox, the QA Agent receives the deployed component manifest.
+2. It generates a test plan from changed components (new field → render check; new validation rule → invalid-input test).
+3. It executes the test plan using Playwright (UI) and REST API (data assertions).
+4. Produces a structured report: passed, failed, screenshots, suggested fixes.
+5. Results posted to pipeline run and linked Jira/Linear ticket.
+
+### Test Types
+
+| Test Type | Mechanism |
+|---|---|
+| Field Existence Check | SOQL query + Metadata API page layout inspection |
+| Validation Rule Test | REST API record create with invalid data; assert error message |
+| Flow Execution Test | Data insert triggers flow; check output records via SOQL |
+| Permission Check | Log in as profile/PS user; assert field/object visibility |
+| Page Layout Render | Playwright screenshot + computer vision field presence check |
+| Apex Test Re-run | Execute changed class tests; surface failures with stack traces |
+| Integration Smoke Test | Call registered external endpoints; assert expected responses |
+
+### Data Model Delta (V5)
+
+```sql
+qa_test_plans (
+  id uuid, tenant_id uuid, pipeline_run_id uuid, org_id uuid,
+  generated_from jsonb, test_cases jsonb, created_at timestamptz
+)
+
+qa_test_results (
+  id uuid, tenant_id uuid, test_plan_id uuid, pipeline_run_id uuid,
+  status text, results jsonb, duration_ms integer, created_at timestamptz
+)
+```
+
+---
+
+## 9. V6 — Analytics, Governance & Enterprise {#v6-enterprise}
+
+### Org Health Dashboard
+
+- Cross-org metadata health score: technical debt, unused fields, inactive flows, automations with no owner.
+- Governor limit utilization tracking (SOQL rows, CPU time, DML per transaction via Apex debug log parsing).
+- DORA metrics per org: deployment frequency, lead time, change failure rate, MTTR.
+
+### Metadata Intelligence
+
+- **Dependency Graph:** Visual map of Apex classes, Flows, custom objects and their interdependencies. Shows blast radius before any deploy.
+- **Org Drift Detection:** Compare two orgs (e.g., Production vs QA); surfaces diverged fields, flows, and configs.
+- **Dead Code Detection:** Apex classes, triggers, Flows with no execution in 90 days.
+
+### Salesforce MCP Transport
+
+- ForceFlow exposes a Model Context Protocol (MCP) server wrapping all `sf_*` tools.
+- External AI agents and IDEs (Cursor, VS Code with Continue) can connect and use org-authenticated Salesforce tools — ForceFlow handles auth, audit, and approval gates.
+
+### Notification & Alerting
+
+- Slack / Teams webhook: pipeline pass/fail, gate approvals needed, QA failures.
+- Email digest: daily summary of pipeline activity per tenant.
+- Escalation for failed production deployments.
+
+### Data Model Delta (V6)
+
+```sql
+org_health_reports (
+  id uuid, tenant_id uuid, org_id uuid, score_letter text,
+  metrics jsonb, generated_at timestamptz
+)
+
+-- Audit log (append-only, tenant-scoped)
+audit_log (
+  id uuid, tenant_id uuid, actor_id uuid, actor_role text,
+  action text, entity_type text, entity_id uuid,
+  payload jsonb, ip_address text, created_at timestamptz
+)
+```
+
+---
+
+## 10. Plan & Execute Mode — How All Development Requests Work {#plan-execute}
+
+### The Core Principle
+
+**No agent in ForceFlow ever directly executes a mutating action on a Salesforce org without a human-reviewed plan.** This applies to every role, every org, every change — no exceptions.
+
+The flow for every development or configuration request:
+
+```
+User Request
+     ↓
+[ANALYSIS PHASE]
+  Agent interrogates the org:
+  - What currently exists related to this request?
+  - What is the current implementation coverage?
+  - What components are involved?
+  - What are the dependencies?
+     ↓
+[PLAN GENERATION]
+  Agent produces a structured execution plan:
+  - Step-by-step actions in order
+  - Each step: what, why, estimated effort, risk level
+  - Total estimated effort
+  - Rollback strategy
+  - Open questions / assumptions
+     ↓
+[HUMAN REVIEW]
+  Plan rendered in UI as an interactive card:
+  - User can edit, reject, or approve each step
+  - User can ask the agent to revise the plan
+  - "Approve & Execute" button
+     ↓
+[EXECUTION PHASE]
+  Agent executes steps in sequence:
+  - Each step shows real-time status (pending / running / done / failed)
+  - Each tool call shows before/after diff
+  - Failures stop execution; agent explains and offers remediation plan
+     ↓
+[VERIFICATION]
+  Agent verifies the outcome:
+  - Re-queries the org to confirm changes applied correctly
+  - Runs relevant Apex tests if code was deployed
+  - Produces a deployment summary report
+```
+
+### Plan Card UI
+
+Every plan generated by the agent is rendered as a structured card in the chat:
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  📋 PLAN: Add "Renewal Date" field to Opportunity               │
+│  Org: Acme Production  |  Est. effort: ~12 min  |  Risk: LOW    │
+├──────────────────────────────────────────────────────────────────┤
+│  CURRENT STATE ANALYSIS                                          │
+│  ✓ Opportunity object has 47 custom fields                       │
+│  ✓ No existing "Renewal" field found                             │
+│  ✓ OpportunityLineItem has no renewal-related fields             │
+│  ⚠ 3 Flows reference Opportunity — dependency scan complete      │
+├──────────────────────────────────────────────────────────────────┤
+│  STEPS                                                           │
+│  1. Create custom field: Renewal_Date__c (Date) on Opportunity   │
+│     → Assign to "Standard" field-level security                  │
+│  2. Add field to "Opportunity Layout" page layout                │
+│  3. Add field to "Sales" Permission Set field permissions        │
+│  4. Verify field visible on record page (QA check)              │
+├──────────────────────────────────────────────────────────────────┤
+│  ROLLBACK PLAN                                                   │
+│  → Delete Renewal_Date__c field (removes from layouts/PS too)   │
+├──────────────────────────────────────────────────────────────────┤
+│  [Edit Plan]  [Request Revision]  [✓ Approve & Execute]         │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### Modes by Complexity
+
+| Request Type | Analysis Depth | Plan Size | Typical Time |
+|---|---|---|---|
+| Simple (add a field, update a rule) | Shallow org scan (1–2 tool calls) | 2–5 steps | < 5 min |
+| Medium (new Flow, Apex trigger) | Component analysis + dependency scan | 5–10 steps | 10–20 min |
+| Complex (multi-object feature, integration) | Deep org analysis + impact assessment | 10–25 steps | 30–90 min |
+| Enterprise (architectural change) | Full org audit + cross-org impact | 25+ steps, phased | Async / multi-session |
+
+### Re-Planning
+
+If execution fails at any step, the agent does not silently stop. It:
+1. Logs the failure with full error details.
+2. Generates a remediation plan for the failed step.
+3. Presents it for user approval before re-attempting.
+4. Rolls back successfully executed steps if the failure is unrecoverable.
+
+---
+
+## 11. Smart Agent Intelligence Layer {#agent-intelligence}
+
+### Overview
+
+Every agent in ForceFlow is trained (via system prompt + tool access) to function as a domain expert who knows the specific company's Salesforce org. When a user describes a business requirement, the agent performs a **three-phase intelligence cycle** before generating any plan.
+
+### Phase 1: Business Requirement Analysis
+
+The agent parses the request and structures it:
+
+```
+User: "We need to track when a customer last renewed their subscription 
+       and automatically flag accounts that haven't renewed in 12 months."
+
+Agent Analysis:
+  Business Objective: Renewal tracking + at-risk account identification
+  Affected Objects: Account, Opportunity (likely), Contract (possible)
+  Process Type: Data capture + automated alerting
+  Complexity Estimate: Medium
+  Cross-cloud concern: Sales Cloud + possibly Service Cloud
+```
+
+### Phase 2: Current Implementation Assessment
+
+Before suggesting anything, the agent deeply queries the org to understand what already exists:
+
+**Tools invoked (read-only, in sequence):**
+1. `sf_soql_query` — search for existing renewal-related fields on Account, Opportunity, Contract
+2. `sf_list_metadata` — list existing Flows for "renewal" or "churn" patterns
+3. `sf_describe_object` — inspect Account custom fields for date/status tracking fields
+4. `sf_tooling_query` — check for existing Apex triggers or scheduled jobs related to renewal logic
+5. `sf_list_metadata (CustomNotificationTypes)` — check existing notification setup
+
+**Output — Current State Report card:**
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  🔍 CURRENT IMPLEMENTATION ANALYSIS                              │
+│  Requirement: Renewal tracking + at-risk flagging               │
+├──────────────────────────────────────────────────────────────────┤
+│  WHAT EXISTS (Partial Implementation — ~30% covered)            │
+│                                                                  │
+│  Fields found:                                                   │
+│  ✓ Account.Contract_End_Date__c (Date) — exists, populated on   │
+│    47% of Account records                                        │
+│  ✓ Opportunity.CloseDate — used as a proxy for renewal date in   │
+│    some records (not reliable)                                   │
+│  ✗ No dedicated "Last_Renewal_Date__c" field found              │
+│  ✗ No "Renewal_Status__c" or at-risk flag field found           │
+│                                                                  │
+│  Automations found:                                              │
+│  ✓ Flow: "Contract Expiry Notification" — sends email 30 days    │
+│    before Contract_End_Date__c. Active. (partial match)         │
+│  ✗ No Flow or Apex found for 12-month no-renewal flag logic     │
+│  ✗ No scheduled job found for at-risk account sweep             │
+│                                                                  │
+│  Reports/Dashboards:                                             │
+│  ✓ Report: "Contracts Expiring This Quarter" — exists, used by   │
+│    Sales team                                                    │
+│  ✗ No "At Risk Accounts" report or dashboard component found    │
+├──────────────────────────────────────────────────────────────────┤
+│  IMPLEMENTATION COVERAGE: ~30%                                   │
+│  GAPS: Last_Renewal_Date field, at-risk flag field, 12-month    │
+│  logic Flow/Apex, at-risk Account report, dashboard tile        │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### Phase 3: Implementation Plan Generation
+
+With the gap analysis complete, the agent generates a full implementation plan that:
+- Builds **on top of** what already exists (reuses `Contract_End_Date__c`, extends the existing Flow rather than creating a duplicate).
+- Sequences steps in safe deployment order (fields before Flows before reports).
+- Includes effort estimates per step based on component type.
+- Flags dependencies and risks.
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  📋 IMPLEMENTATION PLAN: Renewal Tracking & At-Risk Flagging    │
+│  Building on existing: Contract_End_Date__c, Expiry Flow        │
+│  Total estimated effort: ~45 min  |  Risk: LOW-MEDIUM           │
+├──────────────────────────────────────────────────────────────────┤
+│  PHASE 1: Data Foundation (20 min)                               │
+│  Step 1 — Create Account.Last_Renewal_Date__c (Date field)      │
+│  Step 2 — Create Account.Renewal_Status__c (Picklist:           │
+│           Active / At Risk / Churned)                            │
+│  Step 3 — Backfill Last_Renewal_Date__c from existing           │
+│           Contract_End_Date__c where Contract.Status = Signed    │
+│           → SOQL + batch update via Anonymous Apex              │
+│                                                                  │
+│  PHASE 2: Automation (15 min)                                   │
+│  Step 4 — Create Scheduled Flow: "At-Risk Account Sweep"        │
+│           Runs nightly, queries Account where                    │
+│           Last_Renewal_Date__c < TODAY-365 AND                  │
+│           Renewal_Status__c != 'Churned'                        │
+│           → Updates Renewal_Status__c to 'At Risk'              │
+│           → Creates a Task for Account Owner: "Follow up"        │
+│  Step 5 — Extend existing "Contract Expiry Notification" Flow   │
+│           to also update Last_Renewal_Date__c on renewal         │
+│           (add Update Records element after email send)          │
+│                                                                  │
+│  PHASE 3: Visibility (10 min)                                   │
+│  Step 6 — Add Renewal_Status__c to Account page layout          │
+│           (Standard layout + all compact layouts)                │
+│  Step 7 — Create Report: "At-Risk Accounts (No Renewal 12mo)"   │
+│  Step 8 — Add report as dashboard tile to "Sales Overview"       │
+│           dashboard                                              │
+├──────────────────────────────────────────────────────────────────┤
+│  ROLLBACK PLAN                                                   │
+│  → Deactivate Scheduled Flow (preserves data)                   │
+│  → Revert Flow extension (restore prior version from snapshot)  │
+│  → Delete fields only if no data populated (checked pre-delete) │
+├──────────────────────────────────────────────────────────────────┤
+│  ASSUMPTIONS                                                     │
+│  • "Renewal" = re-signed contract or new Opportunity won         │
+│  • 12-month window is from Last_Renewal_Date__c, not fiscal year │
+│  • At-risk flagging should not overwrite manually set 'Churned' │
+├──────────────────────────────────────────────────────────────────┤
+│  [Edit Plan]  [Ask Agent to Revise]  [✓ Approve & Execute]      │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### Continuous Intelligence — Agent Memory per Org
+
+Each org accumulates an **Agent Knowledge Base** — a structured, queryable store of:
+
+- Discovered metadata (fields, objects, Flows, Apex classes) indexed by function/purpose.
+- Past analyses and implementation plans (so the agent doesn't re-scan what it already knows).
+- Implementation decisions and rationale (searchable: "why was this field created this way?").
+- Dependency graph (updated after every deployment).
+
+This means the second time a user asks about a topic the agent has already analyzed, it answers from its knowledge base instantly — not from a full re-scan.
+
+```sql
+agent_knowledge_base (
+  id uuid,
+  tenant_id uuid,
+  org_id uuid,
+  entry_type text,              -- field_discovery | flow_analysis | implementation_decision
+                                -- | dependency_map | gap_analysis | business_context
+  component_type text,          -- ApexClass | CustomField | Flow | ValidationRule | ...
+  component_api_name text,
+  summary text,                 -- human-readable summary of this component's purpose
+  details jsonb,                -- full structured data
+  tags text[],                  -- ['renewal', 'account', 'automation']
+  last_refreshed timestamptz,
+  created_at timestamptz
+)
+```
+
+### Asking "What Have You Built?" — The Org Briefing
+
+Any agent can answer: *"Give me a full briefing on what's built in this org for our Sales process."*
+
+The agent compiles from its knowledge base + a fresh scan:
+
+```
+ORG BRIEFING: Acme Production — Sales Process
+Last full scan: 2 hours ago
+
+OBJECTS & FIELDS
+  Account: 34 custom fields. Key: Tier__c, Region__c, ARR__c, 
+           Contract_End_Date__c (renewal tracking — 47% populated)
+  Opportunity: 28 custom fields. Key: Deal_Type__c, Competitor__c,
+               Close_Reason__c. Note: CloseDate used as proxy for 
+               renewal (not recommended — see analysis #7)
+  Quote: Standard object. CPQ not installed. 3 custom fields added.
+
+AUTOMATIONS
+  Flows (active): 12 flows. Notable: "Lead Assignment by Territory",
+    "Opportunity Stage Validation", "Contract Expiry Notification"
+  Apex Triggers: 4 triggers. OpportunityTrigger (complex, 340 LOC,
+    handles commission calc), AccountTrigger (2 active use cases)
+  Validation Rules: 19 active. 3 on Opportunity, 7 on Account.
+
+INTEGRATIONS
+  External: 2 named credentials found (ERP sync, Marketing Cloud)
+  Webhooks: 1 outbound message (stage change → Slack)
+
+COVERAGE GAPS VS BEST PRACTICES
+  ⚠ No dedicated renewal tracking object/date field (partly addressed)
+  ⚠ OpportunityTrigger exceeds recommended complexity — refactor suggested
+  ⚠ 4 Flows have hardcoded record type IDs (Code Analyzer finding)
+  ⚠ No automated lead scoring logic found
+```
+
+---
+
+## 12. Architecture Overview {#architecture}
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                      FRONTEND (TanStack Start)                    │
+│                                                                    │
+│  /onboarding   /orgs   /models   /team   /chat   /pipelines      │
+│  /quality   /qa   /analytics   /settings                          │
+└──────────────────────────┬───────────────────────────────────────┘
+                           │ HTTPS (tenant JWT in header)
+┌──────────────────────────▼───────────────────────────────────────┐
+│                    BACKEND (Lovable Cloud)                         │
+│                                                                    │
+│  Auth & Tenancy      Lovable Cloud Auth + tenant_id JWT claim     │
+│                      RLS on every table: tenant_id isolation      │
+│                                                                    │
+│  Onboarding          Tenant create + Frontier invite flow         │
+│  Team Management     Invite / role assignment (Frontier only)     │
+│                                                                    │
+│  SF OAuth Flow       /api/sf/oauth/start → SF → /callback         │
+│  Token Refresh       Background job, refresh before expiry        │
+│                                                                    │
+│  AI Provider         openai | anthropic | openrouter | aggregator │
+│  Adapter             (AI SDK streamText; role.systemPrompt        │
+│                       prepended with tenant_context preamble)     │
+│                                                                    │
+│  Agent Intelligence  Analysis phase → Plan generation → Approval  │
+│                       → Execution → Verification loop             │
+│                                                                    │
+│  Agent Tools         sf_* tools (REST/Tooling/Metadata API)       │
+│  Approval Gate       All mutations blocked until plan approved    │
+│                                                                    │
+│  Knowledge Base      Per-org discovery cache + analysis store     │
+│                                                                    │
+│  Pipeline Engine     Git webhook → stage runner → deploy worker   │
+│  Quality Gate        PMD + ESLint + Flow Scanner subprocess       │
+│  QA Agent            Playwright worker pool, test plan executor   │
+│                                                                    │
+│  MCP Server          /mcp transport for external IDE clients      │
+└──────────────────────────┬───────────────────────────────────────┘
+                           │
+       ┌───────────────────┼──────────────────────┐
+       ▼                   ▼                      ▼
+Salesforce Orgs      GitHub/GitLab          Jira / Linear
+(REST / Tooling /    (Webhooks + API,       (Status updates,
+ Metadata API)        SFDX CLI)              release notes)
+```
+
+### Key Backend Modules
+
+```
+src/lib/
+├── tenant.server.ts              Tenant context loader, RLS session setter
+├── onboarding.server.ts          Wizard steps, invite token generation
+├── agent-roles.ts                Role registry: id, label, icon, systemPrompt, toolIds
+├── agent-intelligence.server.ts  Analysis phase, plan generation, knowledge base R/W
+├── plan-executor.server.ts       Step-by-step execution engine, rollback handler
+├── salesforce-tools.server.ts    All sf_* tool implementations
+├── salesforce-client.ts          Token-aware SF API client with auto-refresh
+├── ai-provider.server.ts         Provider adapter (all providers)
+├── pipeline-runner.server.ts     Stage orchestrator, deploy worker, delta diff
+├── quality-gate.server.ts        PMD/ESLint/FlowScanner subprocess wrapper
+├── qa-agent.server.ts            Test plan generator, Playwright executor
+├── mcp-server.ts                 MCP protocol transport wrapping sf_* tools
+├── git-client.server.ts          GitHub/GitLab/Bitbucket API client
+├── ticket-client.server.ts       Jira/Linear API client
+└── encryption.server.ts          AES-256-GCM for tokens/keys at rest
+```
+
+---
+
+## 13. Data Model (Full) {#data-model}
+
+```sql
+-- ═══════════════════════════════════════════
+-- TENANCY
+-- ═══════════════════════════════════════════
+tenants (
+  id uuid PRIMARY KEY,
+  name text NOT NULL,
+  slug text UNIQUE,
+  website text,
+  industry text,
+  company_size text,
+  sf_clouds text[],
+  org_description text,
+  created_at timestamptz
+)
+
+tenant_members (
+  id uuid, tenant_id uuid, user_id uuid,
+  role text CHECK (role IN ('frontier','developer','sales','support','sme')),
+  invited_by uuid, joined_at timestamptz
+)
+
+tenant_invites (
+  id uuid, tenant_id uuid, email text, role text,
+  invited_by uuid, token text UNIQUE,
+  accepted_at timestamptz, expires_at timestamptz, created_at timestamptz
+)
+
+-- ═══════════════════════════════════════════
+-- SALESFORCE ORGS
+-- ═══════════════════════════════════════════
+salesforce_orgs (
+  id uuid, tenant_id uuid, label text, instance_url text,
+  login_url text, org_type text, username text,
+  client_id text, client_secret_enc text,
+  access_token_enc text, refresh_token_enc text,
+  expires_at timestamptz, qa_username text, qa_token_enc text,
+  last_sync timestamptz, status text, created_at timestamptz
+)
+
+-- ═══════════════════════════════════════════
+-- MODEL CONFIGURATION
+-- ═══════════════════════════════════════════
+model_configs (
+  id uuid, tenant_id uuid, label text, provider text,
+  base_url text, api_key_enc text, model_name text, is_default boolean
+)
+
+-- ═══════════════════════════════════════════
+-- CHAT & AGENT
+-- ═══════════════════════════════════════════
+chat_threads (
+  id uuid, tenant_id uuid, user_id uuid, title text,
+  role text, org_id uuid, model_id uuid, created_at timestamptz
+)
+
+chat_messages (
+  id uuid, thread_id uuid, role text,
+  parts jsonb, tool_call_id text, created_at timestamptz
+)
+
+tool_approvals (
+  id uuid, tenant_id uuid, thread_id uuid, message_id uuid,
+  tool_name text, args jsonb, status text,
+  approved_by uuid, approved_at timestamptz
+)
+
+-- ═══════════════════════════════════════════
+-- AGENT INTELLIGENCE
+-- ═══════════════════════════════════════════
+agent_analyses (
+  id uuid, tenant_id uuid, thread_id uuid, org_id uuid,
+  requirement_summary text,
+  current_state_analysis jsonb,
+  gap_analysis jsonb,
+  implementation_plan jsonb,
+  status text,                -- draft | approved | executing | done | failed
+  created_by uuid, approved_by uuid, approved_at timestamptz,
+  execution_log jsonb,        -- per-step status + output
+  created_at timestamptz
+)
+
+agent_knowledge_base (
+  id uuid, tenant_id uuid, org_id uuid,
+  entry_type text, component_type text, component_api_name text,
+  summary text, details jsonb, tags text[],
+  last_refreshed timestamptz, created_at timestamptz
+)
+
+-- ═══════════════════════════════════════════
+-- GIT & PIPELINES
+-- ═══════════════════════════════════════════
+git_connections (
+  id uuid, tenant_id uuid, provider text, repo_url text,
+  default_branch text, branch_map jsonb,
+  webhook_secret_enc text, access_token_enc text
+)
+
+pipeline_runs (
+  id uuid, tenant_id uuid, git_connection_id uuid,
+  trigger_type text, branch text, commit_sha text,
+  commit_message text, stages jsonb, status text,
+  created_at timestamptz, completed_at timestamptz
+)
+
+deployment_snapshots (
+  id uuid, tenant_id uuid, pipeline_run_id uuid,
+  org_id uuid, components jsonb, created_at timestamptz
+)
+
+ticket_links (
+  id uuid, pipeline_run_id uuid, provider text,
+  ticket_id text, ticket_url text
+)
+
+-- ═══════════════════════════════════════════
+-- QUALITY
+-- ═══════════════════════════════════════════
+quality_reports (
+  id uuid, tenant_id uuid, pipeline_run_id uuid,
+  violations jsonb, coverage_pct numeric,
+  score_letter text, created_at timestamptz
+)
+
+-- ═══════════════════════════════════════════
+-- QA TESTING
+-- ═══════════════════════════════════════════
+qa_test_plans (
+  id uuid, tenant_id uuid, pipeline_run_id uuid,
+  org_id uuid, generated_from jsonb, test_cases jsonb,
+  created_at timestamptz
+)
+
+qa_test_results (
+  id uuid, tenant_id uuid, test_plan_id uuid,
+  pipeline_run_id uuid, status text,
+  results jsonb, duration_ms integer, created_at timestamptz
+)
+
+-- ═══════════════════════════════════════════
+-- GOVERNANCE
+-- ═══════════════════════════════════════════
+org_health_reports (
+  id uuid, tenant_id uuid, org_id uuid,
+  score_letter text, metrics jsonb, generated_at timestamptz
+)
+
+audit_log (
+  id uuid, tenant_id uuid, actor_id uuid, actor_role text,
+  action text, entity_type text, entity_id uuid,
+  payload jsonb, ip_address text, created_at timestamptz
+)
+```
+
+All tables: `RLS enabled, policy: tenant_id = current_setting('app.current_tenant_id')::uuid`.
+
+---
+
+## 14. SDLC Time Reduction Strategy {#sdlc-strategy}
+
+### Current State vs ForceFlow
+
+| SDLC Phase | Manual Today | ForceFlow Target | Reduction |
+|---|---|---|---|
+| Requirement → Design | 4–8 hrs (discovery, design doc) | 30 min (SME/Frontier Agent analyzes org, delivers current-state + gap report) | ~85% |
+| Dev: writing Apex/config | 1–3 days | 2–4 hrs (plan generated, Developer Agent executes approved steps) | ~80% |
+| Code review & quality | 4–8 hrs (manual PR review) | 15 min (automated PMD/ESLint gate + AI quick-fix) | ~95% |
+| Deploy to Dev sandbox | 30–60 min (change set) | 2 min (delta deploy via SFDX on PR open) | ~97% |
+| Write Apex test classes | 4–8 hrs | 30 min (AI generates skeletons; developer fills assertions) | ~90% |
+| Deploy to QA | 30–60 min | Automatic (triggered by merge to `qa`) | ~100% |
+| QA smoke testing | 1–2 days (manual) | 20–40 min (QA Agent + visual regression) | ~95% |
+| Deploy to UAT | 30–60 min | Automatic + Frontier 1-click gate | ~90% |
+| UAT sign-off | 1–3 days | 2–4 hrs (QA Agent pre-validates; human spot-checks) | ~80% |
+| Production deploy | 2–4 hrs | 10 min (pipeline + rollback-ready; Frontier approves) | ~95% |
+| **Total (typical feature)** | **~5–10 days** | **~6–10 hours** | **~85–90%** |
+
+### Principles
+
+**Plan Before Execute** — every action is pre-planned, reviewed, and approved. Humans make decisions; agents do work.
+
+**Context-Aware Intelligence** — agents know the company's industry, Salesforce clouds, and existing implementation. Analysis is specific, not generic.
+
+**Shift Left on Quality** — static analysis and test generation happen before code leaves the developer. Issues are cheapest to fix when the developer is still in context.
+
+**Delta Deployments** — `sfdx-git-delta` deploys only changed components. Most feature deploys complete in under 2 minutes.
+
+**Org Knowledge Accumulates** — the knowledge base grows with every analysis. The second time someone asks about a topic the agent has already scanned, it answers instantly.
+
+**Approval-Gated Automation** — humans approve, machines execute. The agent assembles payloads and diffs; the human reviews and approves with one click.
+
+---
+
+## 15. Technology Stack {#tech-stack}
+
+### Frontend
+- **Framework:** TanStack Start (file-based routing, SSR, server functions)
+- **UI Components:** shadcn/ui + Radix primitives
+- **Styling:** Tailwind CSS — dark slate/indigo design system
+- **Fonts:** Inter (UI), JetBrains Mono (code/IDs)
+- **Streaming:** AI SDK `useChat` hook with tool-call rendering + plan card components
+- **State:** TanStack Query for server state
+
+### Backend
+- **Runtime:** Lovable Cloud server functions + route handlers
+- **AI:** Vercel AI SDK `streamText`, provider-agnostic adapter; role system prompt + tenant preamble injected per request
+- **SF Client:** Axios-based, token-aware, auto-refresh, retry on 401; composite API for batch operations
+- **Pipeline Runner:** Node.js child processes for SFDX CLI commands
+- **QA Automation:** Playwright (headless Chromium) in worker pool
+- **Static Analysis:** PMD CLI, ESLint, Salesforce Code Analyzer v5 — subprocesses in pipeline stages
+
+### Database
+- **Primary:** Supabase (Postgres) via Lovable Cloud — all tables tenant-scoped with RLS
+- **Encryption:** AES-256-GCM for all tokens and API keys at rest; decrypted only in server function scope
+- **Realtime:** Supabase realtime for pipeline run status + plan execution step updates
+
+### Integrations
+- **Salesforce:** REST API, Tooling API, Metadata API (SOAP + REST), Composite API
+- **Git:** GitHub Apps (webhooks + API), GitLab webhooks, Bitbucket webhooks
+- **Tickets:** Jira REST API v3, Linear GraphQL API
+- **Notifications:** Slack Incoming Webhooks, Microsoft Teams webhooks
+- **MCP:** Model Context Protocol server (SSE transport) wrapping all `sf_*` tools
+
+### Infrastructure
+- **CI Quality Tools:** Salesforce Code Analyzer v5 (PMD + ESLint + RetireJS, 440+ rules), `sfdx-git-delta`
+- **Package Registry:** Salesforce Unlocked Packages (optional)
+- **Secrets:** AES-256-GCM encryption; keys never logged or exposed to client
+
+---
+
+## 16. Iteration Roadmap Summary {#roadmap}
+
+| Version | Core Capability | SDLC Impact |
+|---|---|---|
+| V1 | Multi-tenant foundation, company onboarding, multi-org auth, BYOK models, AI config agent | Dev time ↓ 70% |
+| V2 | Frontier role, team onboarding by Frontier, Sales/Support/SME/Developer agents, Plan & Execute mode, Smart Agent Intelligence (analysis → gap → plan) | Full org awareness; no blind mutations |
+| V3 | Git pipeline, delta deployments, Jira/Linear integration, environment promotion with Frontier gate | Deploy time ↓ 97%, cycle time ↓ 80% |
+| V4 | PMD/ESLint/Flow Scanner quality gates, AI quick-fix, Apex test generation | Code review time ↓ 95% |
+| V5 | Autonomous QA Testing Agent, Playwright, visual regression, test plan from component manifest | QA time ↓ 95% |
+| V6 | Org health dashboard, DORA metrics, dependency graph, drift detection, team RBAC audit, MCP server for external IDEs | Enterprise governance + platform extensibility |
+
+---
+
+*ForceFlow — every change planned, every deployment approved, every org understood.*
+ENDOFFILE
+echo "File written successfully"
+Output
+
+File written successfully
+Done
+
+You are out of free messages until 2:20 AM

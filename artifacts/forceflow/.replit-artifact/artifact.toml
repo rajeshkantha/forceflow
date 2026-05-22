@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "ForceFlow"
+version = "1.0.0"
+id = "artifacts/forceflow"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 26164
+
+[services.development]
+run = "pnpm --filter @workspace/forceflow run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/forceflow", "run", "build" ]
+publicDir = "artifacts/forceflow/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "26164"
+BASE_PATH = "/"

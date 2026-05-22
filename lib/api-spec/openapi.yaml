@@ -3,20 +3,40 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: ForceFlow API — Multi-Tenant Salesforce Automation Platform
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication and user management
+  - name: tenants
+    description: Tenant/company management
+  - name: orgs
+    description: Salesforce org connections
+  - name: models
+    description: AI model configuration
+  - name: team
+    description: Team member management
+  - name: chat
+    description: Chat threads and messages
+  - name: analyses
+    description: Agent analyses and plans
+  - name: pipelines
+    description: CI/CD pipeline runs
+  - name: quality
+    description: Code quality reports
+  - name: dashboard
+    description: Dashboard summary data
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +44,723 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ─── AUTH ───────────────────────────────────────────────────────────────────
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user with tenant context
+      responses:
+        "200":
+          description: Current user with tenant info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserWithTenant"
+        "401":
+          description: Unauthorized
+
+  # ─── ONBOARDING ─────────────────────────────────────────────────────────────
+  /onboarding/complete:
+    post:
+      operationId: completeOnboarding
+      tags: [tenants]
+      summary: Complete company onboarding wizard (creates tenant + connects first org + model)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OnboardingInput"
+      responses:
+        "201":
+          description: Onboarding complete
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+
+  /onboarding/invite/accept:
+    post:
+      operationId: acceptInvite
+      tags: [tenants]
+      summary: Accept a team invite and join a tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InviteAcceptInput"
+      responses:
+        "200":
+          description: Invite accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantMember"
+
+  /onboarding/invite/validate:
+    get:
+      operationId: validateInviteToken
+      tags: [tenants]
+      summary: Validate an invite token
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Invite details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InviteDetails"
+
+  # ─── TENANT ─────────────────────────────────────────────────────────────────
+  /tenant:
+    get:
+      operationId: getTenant
+      tags: [tenants]
+      summary: Get current tenant details
+      responses:
+        "200":
+          description: Tenant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+    patch:
+      operationId: updateTenant
+      tags: [tenants]
+      summary: Update tenant profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantUpdate"
+      responses:
+        "200":
+          description: Updated tenant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+
+  # ─── TEAM ───────────────────────────────────────────────────────────────────
+  /team:
+    get:
+      operationId: listTeamMembers
+      tags: [team]
+      summary: List all team members in the tenant
+      responses:
+        "200":
+          description: Team members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TenantMember"
+
+  /team/invite:
+    post:
+      operationId: inviteTeamMember
+      tags: [team]
+      summary: Invite a new team member (Frontier only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeamInviteInput"
+      responses:
+        "201":
+          description: Invite sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamInvite"
+
+  /team/{memberId}:
+    patch:
+      operationId: updateTeamMember
+      tags: [team]
+      summary: Update a team member's role
+      parameters:
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeamMemberUpdate"
+      responses:
+        "200":
+          description: Updated member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantMember"
+    delete:
+      operationId: removeTeamMember
+      tags: [team]
+      summary: Remove a team member
+      parameters:
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Removed
+
+  # ─── SALESFORCE ORGS ────────────────────────────────────────────────────────
+  /orgs:
+    get:
+      operationId: listOrgs
+      tags: [orgs]
+      summary: List all connected Salesforce orgs
+      responses:
+        "200":
+          description: Orgs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SalesforceOrg"
+    post:
+      operationId: createOrg
+      tags: [orgs]
+      summary: Connect a new Salesforce org
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrgInput"
+      responses:
+        "201":
+          description: Org connected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesforceOrg"
+
+  /orgs/{orgId}:
+    get:
+      operationId: getOrg
+      tags: [orgs]
+      summary: Get a specific org
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Org
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesforceOrg"
+    delete:
+      operationId: deleteOrg
+      tags: [orgs]
+      summary: Disconnect/delete an org
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /orgs/{orgId}/reconnect:
+    post:
+      operationId: reconnectOrg
+      tags: [orgs]
+      summary: Trigger OAuth reconnection for an org
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Reconnect URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgReconnectResponse"
+
+  # ─── MODEL CONFIGS ──────────────────────────────────────────────────────────
+  /models:
+    get:
+      operationId: listModelConfigs
+      tags: [models]
+      summary: List all model configurations
+      responses:
+        "200":
+          description: Model configs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ModelConfig"
+    post:
+      operationId: createModelConfig
+      tags: [models]
+      summary: Add a new model configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ModelConfigInput"
+      responses:
+        "201":
+          description: Created model config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelConfig"
+
+  /models/{modelId}:
+    patch:
+      operationId: updateModelConfig
+      tags: [models]
+      summary: Update a model configuration
+      parameters:
+        - name: modelId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ModelConfigUpdate"
+      responses:
+        "200":
+          description: Updated model config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelConfig"
+    delete:
+      operationId: deleteModelConfig
+      tags: [models]
+      summary: Delete a model configuration
+      parameters:
+        - name: modelId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /models/{modelId}/test:
+    post:
+      operationId: testModelConfig
+      tags: [models]
+      summary: Test a model configuration connection
+      parameters:
+        - name: modelId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Test result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelTestResult"
+
+  /models/{modelId}/set-default:
+    post:
+      operationId: setDefaultModel
+      tags: [models]
+      summary: Set a model config as the tenant default
+      parameters:
+        - name: modelId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Updated model config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelConfig"
+
+  # ─── CHAT THREADS ───────────────────────────────────────────────────────────
+  /chat:
+    get:
+      operationId: listThreads
+      tags: [chat]
+      summary: List chat threads for the current user
+      responses:
+        "200":
+          description: Threads
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatThread"
+    post:
+      operationId: createThread
+      tags: [chat]
+      summary: Create a new chat thread
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatThreadInput"
+      responses:
+        "201":
+          description: Created thread
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatThread"
+
+  /chat/{threadId}:
+    get:
+      operationId: getThread
+      tags: [chat]
+      summary: Get a specific thread with messages
+      parameters:
+        - name: threadId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Thread with messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatThreadWithMessages"
+    delete:
+      operationId: deleteThread
+      tags: [chat]
+      summary: Delete a chat thread
+      parameters:
+        - name: threadId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /chat/{threadId}/messages:
+    post:
+      operationId: sendMessage
+      tags: [chat]
+      summary: Send a message in a thread (triggers AI response)
+      parameters:
+        - name: threadId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MessageInput"
+      responses:
+        "200":
+          description: AI response (streaming)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatMessage"
+
+  /chat/{threadId}/title:
+    patch:
+      operationId: updateThreadTitle
+      tags: [chat]
+      summary: Update thread title
+      parameters:
+        - name: threadId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ThreadTitleUpdate"
+      responses:
+        "200":
+          description: Updated thread
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatThread"
+
+  # Tool approvals
+  /chat/{threadId}/approvals/{approvalId}:
+    post:
+      operationId: respondToApproval
+      tags: [chat]
+      summary: Approve or reject a tool-call approval request
+      parameters:
+        - name: threadId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: approvalId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApprovalResponseInput"
+      responses:
+        "200":
+          description: Approval response recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToolApproval"
+
+  # ─── AGENT ANALYSES ─────────────────────────────────────────────────────────
+  /analyses:
+    get:
+      operationId: listAnalyses
+      tags: [analyses]
+      summary: List agent analyses for the tenant
+      parameters:
+        - name: orgId
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Analyses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AgentAnalysis"
+
+  /analyses/{analysisId}:
+    get:
+      operationId: getAnalysis
+      tags: [analyses]
+      summary: Get a specific analysis with full plan
+      parameters:
+        - name: analysisId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentAnalysis"
+
+  /analyses/{analysisId}/approve:
+    post:
+      operationId: approveAnalysis
+      tags: [analyses]
+      summary: Approve an analysis plan for execution
+      parameters:
+        - name: analysisId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Approved analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentAnalysis"
+
+  # ─── PIPELINE RUNS ──────────────────────────────────────────────────────────
+  /pipelines:
+    get:
+      operationId: listPipelineRuns
+      tags: [pipelines]
+      summary: List pipeline runs for the tenant
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Pipeline runs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PipelineRun"
+
+  /pipelines/{runId}:
+    get:
+      operationId: getPipelineRun
+      tags: [pipelines]
+      summary: Get a specific pipeline run with stage details
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Pipeline run
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PipelineRun"
+
+  /pipelines/{runId}/approve:
+    post:
+      operationId: approvePipelineStage
+      tags: [pipelines]
+      summary: Approve a pipeline gate (Frontier only)
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PipelineApprovalInput"
+      responses:
+        "200":
+          description: Updated pipeline run
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PipelineRun"
+
+  # ─── QUALITY REPORTS ────────────────────────────────────────────────────────
+  /quality/{reportId}:
+    get:
+      operationId: getQualityReport
+      tags: [quality]
+      summary: Get a quality report
+      parameters:
+        - name: reportId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Quality report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QualityReport"
+
+  # ─── DASHBOARD ──────────────────────────────────────────────────────────────
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get tenant dashboard summary (orgs, team, pipelines, threads)
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  /dashboard/activity:
+    get:
+      operationId: getRecentActivity
+      tags: [dashboard]
+      summary: Get recent activity feed for the tenant
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Activity feed
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityItem"
+
+  /dashboard/pipeline-stats:
+    get:
+      operationId: getPipelineStats
+      tags: [dashboard]
+      summary: Get pipeline status breakdown and deployment metrics
+      responses:
+        "200":
+          description: Pipeline statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PipelineStats"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +771,625 @@ components:
       required:
         - status
 
+    # ─── USER & TENANT ─────────────────────────────────────────────────────
+    UserWithTenant:
+      type: object
+      required: [id, email, tenantId, role, tenant]
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        name:
+          type: ["string", "null"]
+        tenantId:
+          type: ["string", "null"]
+        role:
+          type: ["string", "null"]
+        onboardingComplete:
+          type: boolean
+        tenant:
+          $ref: "#/components/schemas/Tenant"
+
+    Tenant:
+      type: object
+      required: [id, name, createdAt]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        slug:
+          type: ["string", "null"]
+        website:
+          type: ["string", "null"]
+        industry:
+          type: ["string", "null"]
+        companySize:
+          type: ["string", "null"]
+        sfClouds:
+          type: array
+          items:
+            type: string
+        orgDescription:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    TenantUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        website:
+          type: string
+        industry:
+          type: string
+        companySize:
+          type: string
+        sfClouds:
+          type: array
+          items:
+            type: string
+        orgDescription:
+          type: string
+
+    TenantMember:
+      type: object
+      required: [id, tenantId, userId, role, joinedAt]
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        userId:
+          type: string
+        email:
+          type: ["string", "null"]
+        name:
+          type: ["string", "null"]
+        role:
+          type: string
+          enum: [frontier, developer, sales, support, sme]
+        invitedBy:
+          type: ["string", "null"]
+        joinedAt:
+          type: string
+          format: date-time
+
+    # ─── ONBOARDING ────────────────────────────────────────────────────────
+    OnboardingInput:
+      type: object
+      required: [company]
+      properties:
+        company:
+          type: object
+          required: [name]
+          properties:
+            name:
+              type: string
+            website:
+              type: string
+            industry:
+              type: string
+            companySize:
+              type: string
+            sfClouds:
+              type: array
+              items:
+                type: string
+            orgDescription:
+              type: string
+        org:
+          type: object
+          properties:
+            label:
+              type: string
+            loginUrl:
+              type: string
+            orgType:
+              type: string
+            clientId:
+              type: string
+            clientSecret:
+              type: string
+        model:
+          type: object
+          properties:
+            provider:
+              type: string
+            apiKey:
+              type: string
+            modelName:
+              type: string
+            label:
+              type: string
+
+    InviteAcceptInput:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+        name:
+          type: string
+
+    InviteDetails:
+      type: object
+      required: [email, role, tenantName, tenantId, valid]
+      properties:
+        email:
+          type: string
+        role:
+          type: string
+        tenantName:
+          type: string
+        tenantId:
+          type: string
+        valid:
+          type: boolean
+        expiresAt:
+          type: ["string", "null"]
+          format: date-time
+
+    # ─── TEAM ──────────────────────────────────────────────────────────────
+    TeamInviteInput:
+      type: object
+      required: [email, role]
+      properties:
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [frontier, developer, sales, support, sme]
+
+    TeamInvite:
+      type: object
+      required: [id, tenantId, email, role, token, createdAt, expiresAt]
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+        token:
+          type: string
+        acceptedAt:
+          type: ["string", "null"]
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    TeamMemberUpdate:
+      type: object
+      required: [role]
+      properties:
+        role:
+          type: string
+          enum: [frontier, developer, sales, support, sme]
+
+    # ─── SALESFORCE ORGS ───────────────────────────────────────────────────
+    SalesforceOrg:
+      type: object
+      required: [id, tenantId, label, orgType, status, createdAt]
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        label:
+          type: string
+        instanceUrl:
+          type: ["string", "null"]
+        loginUrl:
+          type: ["string", "null"]
+        orgType:
+          type: string
+          enum: [production, sandbox, developer, scratch]
+        username:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [connected, disconnected, error]
+        lastSync:
+          type: ["string", "null"]
+          format: date-time
+        expiresAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    OrgInput:
+      type: object
+      required: [label, orgType, loginUrl, clientId, clientSecret]
+      properties:
+        label:
+          type: string
+        orgType:
+          type: string
+          enum: [production, sandbox, developer, scratch]
+        loginUrl:
+          type: string
+        clientId:
+          type: string
+        clientSecret:
+          type: string
+
+    OrgReconnectResponse:
+      type: object
+      required: [authUrl]
+      properties:
+        authUrl:
+          type: string
+
+    # ─── MODEL CONFIGS ─────────────────────────────────────────────────────
+    ModelConfig:
+      type: object
+      required: [id, tenantId, provider, modelName, isDefault, createdAt]
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        label:
+          type: ["string", "null"]
+        provider:
+          type: string
+          enum: [openai, anthropic, openrouter, custom]
+        baseUrl:
+          type: ["string", "null"]
+        modelName:
+          type: string
+        isDefault:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    ModelConfigInput:
+      type: object
+      required: [provider, modelName, apiKey]
+      properties:
+        label:
+          type: string
+        provider:
+          type: string
+          enum: [openai, anthropic, openrouter, custom]
+        baseUrl:
+          type: string
+        modelName:
+          type: string
+        apiKey:
+          type: string
+        isDefault:
+          type: boolean
+
+    ModelConfigUpdate:
+      type: object
+      properties:
+        label:
+          type: string
+        modelName:
+          type: string
+        apiKey:
+          type: string
+        baseUrl:
+          type: string
+        isDefault:
+          type: boolean
+
+    ModelTestResult:
+      type: object
+      required: [success, message]
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        latencyMs:
+          type: ["integer", "null"]
+
+    # ─── CHAT ──────────────────────────────────────────────────────────────
+    ChatThread:
+      type: object
+      required: [id, tenantId, userId, role, createdAt]
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        userId:
+          type: string
+        title:
+          type: ["string", "null"]
+        role:
+          type: string
+          enum: [frontier, developer, sales, support, sme]
+        orgId:
+          type: ["string", "null"]
+        modelId:
+          type: ["string", "null"]
+        messageCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    ChatThreadInput:
+      type: object
+      required: [role]
+      properties:
+        role:
+          type: string
+          enum: [frontier, developer, sales, support, sme]
+        orgId:
+          type: string
+        modelId:
+          type: string
+        title:
+          type: string
+
+    ThreadTitleUpdate:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+
+    ChatThreadWithMessages:
+      type: object
+      required: [thread, messages]
+      properties:
+        thread:
+          $ref: "#/components/schemas/ChatThread"
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatMessage"
+
+    ChatMessage:
+      type: object
+      required: [id, threadId, role, createdAt]
+      properties:
+        id:
+          type: string
+        threadId:
+          type: string
+        role:
+          type: string
+          enum: [user, assistant, tool]
+        content:
+          type: ["string", "null"]
+        parts:
+          type: ["object", "null"]
+        toolCallId:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    MessageInput:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+        orgId:
+          type: string
+
+    ApprovalResponseInput:
+      type: object
+      required: [decision]
+      properties:
+        decision:
+          type: string
+          enum: [approved, rejected]
+
+    ToolApproval:
+      type: object
+      required: [id, tenantId, threadId, toolName, status, createdAt]
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        threadId:
+          type: string
+        messageId:
+          type: ["string", "null"]
+        toolName:
+          type: string
+        args:
+          type: object
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        approvedBy:
+          type: ["string", "null"]
+        approvedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    # ─── AGENT ANALYSES ────────────────────────────────────────────────────
+    AgentAnalysis:
+      type: object
+      required: [id, tenantId, threadId, orgId, requirementSummary, status, createdAt]
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        threadId:
+          type: string
+        orgId:
+          type: string
+        requirementSummary:
+          type: string
+        currentStateAnalysis:
+          type: ["object", "null"]
+        gapAnalysis:
+          type: ["object", "null"]
+        implementationPlan:
+          type: ["object", "null"]
+        status:
+          type: string
+          enum: [draft, approved, executing, done, failed]
+        createdBy:
+          type: ["string", "null"]
+        approvedBy:
+          type: ["string", "null"]
+        approvedAt:
+          type: ["string", "null"]
+          format: date-time
+        executionLog:
+          type: ["object", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    # ─── PIPELINES ─────────────────────────────────────────────────────────
+    PipelineRun:
+      type: object
+      required: [id, tenantId, status, createdAt]
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        gitConnectionId:
+          type: ["string", "null"]
+        triggerType:
+          type: ["string", "null"]
+        branch:
+          type: ["string", "null"]
+        commitSha:
+          type: ["string", "null"]
+        commitMessage:
+          type: ["string", "null"]
+        stages:
+          type: ["object", "null"]
+        status:
+          type: string
+          enum: [pending, running, passed, failed, cancelled]
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: ["string", "null"]
+          format: date-time
+
+    PipelineApprovalInput:
+      type: object
+      required: [stage, decision]
+      properties:
+        stage:
+          type: string
+        decision:
+          type: string
+          enum: [approved, rejected]
+        notes:
+          type: string
+
+    # ─── QUALITY ───────────────────────────────────────────────────────────
+    QualityReport:
+      type: object
+      required: [id, tenantId, coveragePct, scoreLetter, createdAt]
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        pipelineRunId:
+          type: ["string", "null"]
+        violations:
+          type: ["object", "null"]
+        coveragePct:
+          type: number
+        scoreLetter:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    # ─── DASHBOARD ─────────────────────────────────────────────────────────
+    DashboardSummary:
+      type: object
+      required: [orgsCount, teamCount, activeModelProvider, recentThreadsCount, pipelineRunsCount]
+      properties:
+        orgsCount:
+          type: integer
+        connectedOrgsCount:
+          type: integer
+        teamCount:
+          type: integer
+        activeModelProvider:
+          type: ["string", "null"]
+        activeModelName:
+          type: ["string", "null"]
+        recentThreadsCount:
+          type: integer
+        pipelineRunsCount:
+          type: integer
+        pipelinePassRate:
+          type: number
+        recentThreads:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatThread"
+        orgs:
+          type: array
+          items:
+            $ref: "#/components/schemas/SalesforceOrg"
+
+    ActivityItem:
+      type: object
+      required: [id, type, description, createdAt]
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [thread_created, org_connected, member_invited, pipeline_run, analysis_approved, model_added]
+        description:
+          type: string
+        actor:
+          type: ["string", "null"]
+        entityId:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    PipelineStats:
+      type: object
+      required: [total, passed, failed, running, pending]
+      properties:
+        total:
+          type: integer
+        passed:
+          type: integer
+        failed:
+          type: integer
+        running:
+          type: integer
+        pending:
+          type: integer
+        avgDurationMs:
+          type: ["integer", "null"]
+        lastRunAt:
+          type: ["string", "null"]
+          format: date-time
