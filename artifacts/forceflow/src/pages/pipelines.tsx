@@ -37,116 +37,20 @@ export default function PipelinesPage() {
           <p className="text-muted-foreground">Monitor CI/CD pipeline runs and deployments.</p>
         </div>
 
-        {/* Stats Row */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-4 flex flex-col items-center justify-center text-center space-y-1">
-              <div className="text-sm font-medium text-muted-foreground">Total Runs</div>
-              {isStatsLoading ? <Skeleton className="h-8 w-16" /> : <div className="text-2xl font-bold">{stats?.total || 0}</div>}
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 flex flex-col items-center justify-center text-center space-y-1">
-              <div className="text-sm font-medium text-emerald-500">Passed</div>
-              {isStatsLoading ? <Skeleton className="h-8 w-16" /> : <div className="text-2xl font-bold text-emerald-500">{stats?.passed || 0}</div>}
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 flex flex-col items-center justify-center text-center space-y-1">
-              <div className="text-sm font-medium text-red-500">Failed</div>
-              {isStatsLoading ? <Skeleton className="h-8 w-16" /> : <div className="text-2xl font-bold text-red-500">{stats?.failed || 0}</div>}
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 flex flex-col items-center justify-center text-center space-y-1">
-              <div className="text-sm font-medium text-blue-500">Running</div>
-              {isStatsLoading ? <Skeleton className="h-8 w-16" /> : <div className="text-2xl font-bold text-blue-500">{stats?.running || 0}</div>}
-            </CardContent>
-          </Card>
+          <Card><CardContent className="p-4 flex flex-col items-center justify-center text-center space-y-1"><div className="text-sm font-medium text-muted-foreground">Total Runs</div>{isStatsLoading ? <Skeleton className="h-8 w-16" /> : <div className="text-2xl font-bold">{stats?.total || 0}</div>}</CardContent></Card>
+          <Card><CardContent className="p-4 flex flex-col items-center justify-center text-center space-y-1"><div className="text-sm font-medium text-emerald-500">Passed</div>{isStatsLoading ? <Skeleton className="h-8 w-16" /> : <div className="text-2xl font-bold text-emerald-500">{stats?.passed || 0}</div>}</CardContent></Card>
+          <Card><CardContent className="p-4 flex flex-col items-center justify-center text-center space-y-1"><div className="text-sm font-medium text-red-500">Failed</div>{isStatsLoading ? <Skeleton className="h-8 w-16" /> : <div className="text-2xl font-bold text-red-500">{stats?.failed || 0}</div>}</CardContent></Card>
+          <Card><CardContent className="p-4 flex flex-col items-center justify-center text-center space-y-1"><div className="text-sm font-medium text-blue-500">Running</div>{isStatsLoading ? <Skeleton className="h-8 w-16" /> : <div className="text-2xl font-bold text-blue-500">{stats?.running || 0}</div>}</CardContent></Card>
         </div>
 
-        {/* Filters */}
-        <div className="flex gap-4 items-center">
-          <Input placeholder="Search branch or commit..." className="max-w-xs" />
-          <Select defaultValue="all">
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="passed">Passed</SelectItem>
-              <SelectItem value="failed">Failed</SelectItem>
-              <SelectItem value="running">Running</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <div className="flex gap-4 items-center"><Input placeholder="Search branch or commit..." className="max-w-xs" /><Select defaultValue="all"><SelectTrigger className="w-[180px]"><SelectValue placeholder="Status" /></SelectTrigger><SelectContent><SelectItem value="all">All Statuses</SelectItem><SelectItem value="passed">Passed</SelectItem><SelectItem value="failed">Failed</SelectItem><SelectItem value="running">Running</SelectItem></SelectContent></Select></div>
 
-        {/* Table */}
         <div className="rounded-md border border-border bg-card">
           <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Commit</TableHead>
-                <TableHead>Branch</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Duration</TableHead>
-                <TableHead className="text-right">Created</TableHead>
-              </TableRow>
-            </TableHeader>
+            <TableHeader><TableRow><TableHead>Commit</TableHead><TableHead>Branch</TableHead><TableHead>Status</TableHead><TableHead>Duration</TableHead><TableHead className="text-right">Created</TableHead></TableRow></TableHeader>
             <TableBody>
-              {isLoading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell><Skeleton className="h-6 w-32" /></TableCell>
-                    <TableCell><Skeleton className="h-6 w-24" /></TableCell>
-                    <TableCell><Skeleton className="h-6 w-24" /></TableCell>
-                    <TableCell><Skeleton className="h-6 w-16" /></TableCell>
-                    <TableCell className="text-right"><Skeleton className="h-6 w-24 ml-auto" /></TableCell>
-                  </TableRow>
-                ))
-              ) : !runs?.length ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                    No pipeline runs found.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                runs.map((run) => (
-                  <TableRow key={run.id} className="hover:bg-muted/50 cursor-pointer">
-                    <TableCell>
-                      <Link href={`/pipelines/${run.id}`} className="block">
-                        <div className="flex items-center gap-2">
-                          <GitCommit className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-mono text-sm">{run.commitSha.substring(0, 7)}</span>
-                          <span className="text-muted-foreground text-sm truncate max-w-[200px]">{run.commitMessage}</span>
-                        </div>
-                      </Link>
-                    </TableCell>
-                    <TableCell>
-                       <Link href={`/pipelines/${run.id}`} className="block">
-                        <div className="flex items-center gap-2">
-                          <GitBranch className="h-4 w-4 text-muted-foreground" />
-                          {run.branch}
-                        </div>
-                      </Link>
-                    </TableCell>
-                    <TableCell><Link href={`/pipelines/${run.id}`} className="block">{getStatusBadge(run.status)}</Link></TableCell>
-                    <TableCell>
-                      <Link href={`/pipelines/${run.id}`} className="block">
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Clock className="h-4 w-4" />
-                          {formatDuration(run.durationSeconds)}
-                        </div>
-                      </Link>
-                    </TableCell>
-                    <TableCell className="text-right text-muted-foreground text-sm">
-                      <Link href={`/pipelines/${run.id}`} className="block">
-                         {new Date(run.createdAt).toLocaleString()}
-                      </Link>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
+              {isLoading ? Array.from({ length: 5 }).map((_, i) => (<TableRow key={i}><TableCell><Skeleton className="h-6 w-32" /></TableCell><TableCell><Skeleton className="h-6 w-24" /></TableCell><TableCell><Skeleton className="h-6 w-24" /></TableCell><TableCell><Skeleton className="h-6 w-16" /></TableCell><TableCell className="text-right"><Skeleton className="h-6 w-24 ml-auto" /></TableCell></TableRow>)) : !runs?.length ? (<TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No pipeline runs found.</TableCell></TableRow>) : runs.map((run) => (<TableRow key={run.id} className="hover:bg-muted/50 cursor-pointer"><TableCell><Link href={`/pipelines/${run.id}`} className="block"><div className="flex items-center gap-2"><GitCommit className="h-4 w-4 text-muted-foreground" /><span className="font-mono text-sm">{(run.commitSha || "").substring(0, 7)}</span><span className="text-muted-foreground text-sm truncate max-w-[200px]">{run.commitMessage}</span></div></Link></TableCell><TableCell><Link href={`/pipelines/${run.id}`} className="block"><div className="flex items-center gap-2"><GitBranch className="h-4 w-4 text-muted-foreground" />{run.branch}</div></Link></TableCell><TableCell><Link href={`/pipelines/${run.id}`} className="block">{getStatusBadge(run.status)}</Link></TableCell><TableCell><Link href={`/pipelines/${run.id}`} className="block"><div className="flex items-center gap-2 text-muted-foreground"><Clock className="h-4 w-4" />{formatDuration(run.durationSeconds)}</div></Link></TableCell><TableCell className="text-right text-muted-foreground text-sm"><Link href={`/pipelines/${run.id}`} className="block">{new Date(run.createdAt).toLocaleString()}</Link></TableCell></TableRow>))}
             </TableBody>
           </Table>
         </div>

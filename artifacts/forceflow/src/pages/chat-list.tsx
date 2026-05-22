@@ -20,7 +20,6 @@ export default function ChatListPage() {
   return (
     <AppLayout>
       <div className="flex h-[calc(100vh-10rem)] border border-border rounded-lg overflow-hidden bg-card">
-        {/* Left Panel */}
         <div className="w-1/3 border-r border-border flex flex-col h-full bg-background">
           <div className="p-4 border-b border-border flex justify-between items-center bg-card">
             <h2 className="font-semibold text-lg">Chats</h2>
@@ -36,21 +35,15 @@ export default function ChatListPage() {
             ) : (
               Object.entries(groupedThreads || {}).map(([role, roleThreads]) => (
                 <div key={role} className="space-y-2">
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-2">
-                    {role} Agents
-                  </h3>
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-2">{role} Agents</h3>
                   {roleThreads.map((thread) => (
                     <Link key={thread.id} href={`/chat/${thread.id}`}>
                       <div className="p-3 rounded-md hover:bg-muted cursor-pointer transition-colors flex justify-between group">
                         <div className="overflow-hidden pr-2">
                           <div className="font-medium text-sm truncate">{thread.title || "New Conversation"}</div>
-                          <div className="text-xs text-muted-foreground mt-1">
-                            {new Date(thread.updatedAt).toLocaleDateString()}
-                          </div>
+                          <div className="text-xs text-muted-foreground mt-1">{new Date(thread.createdAt).toLocaleDateString()}</div>
                         </div>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive shrink-0">
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive shrink-0"><Trash2 className="h-3 w-3" /></Button>
                       </div>
                     </Link>
                   ))}
@@ -60,14 +53,8 @@ export default function ChatListPage() {
           </div>
         </div>
 
-        {/* Right Panel / Main Area */}
         <div className="flex-1 flex items-center justify-center bg-background/50">
-           <Empty 
-            icon={<MessageSquare className="h-12 w-12 text-muted-foreground" />}
-            title="ForceFlow AI Agents"
-            description="Select a conversation from the sidebar or start a new one."
-            action={<Button><Plus className="mr-2 h-4 w-4" /> New Chat</Button>}
-          />
+          <Empty title="ForceFlow AI Agents" description="Select a conversation from the sidebar or start a new one." />
         </div>
       </div>
     </AppLayout>

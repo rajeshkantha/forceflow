@@ -12,7 +12,7 @@ import { useUser } from "@clerk/react";
 export default function ChatPage() {
   const { threadId } = useParams();
   const { user } = useUser();
-  const { data: thread, isLoading } = useGetThread(threadId || "", { query: { enabled: !!threadId } });
+  const { data: thread, isLoading, queryKey } = useGetThread(threadId || "", { query: { enabled: !!threadId, queryKey: ["thread", threadId] as const } });
   const sendMessage = useSendMessage();
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -23,10 +23,7 @@ export default function ChatPage() {
 
   const handleSend = () => {
     if (!input.trim() || !threadId) return;
-    sendMessage.mutate({ 
-      threadId, 
-      data: { content: input } 
-    });
+    sendMessage.mutate({ threadId, data: { content: input } });
     setInput("");
   };
 
@@ -51,85 +48,23 @@ export default function ChatPage() {
   return (
     <AppLayout>
       <div className="flex flex-col h-[calc(100vh-8rem)] border border-border rounded-lg overflow-hidden bg-card">
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-background">
           <div className="flex items-center gap-3">
-            {isLoading ? <Skeleton className="h-6 w-40" /> : (
-              <>
-                <h2 className="font-semibold text-lg">{thread?.title || "New Conversation"}</h2>
-                {thread?.role && getRoleBadge(thread.role)}
-              </>
-            )}
+            {isLoading ? <Skeleton className="h-6 w-40" /> : <><h2 className="font-semibold text-lg">{thread?.thread?.title || thread?.title || "New Conversation"}</h2>{(thread?.thread?.role || thread?.role) && getRoleBadge(thread.thread?.role || thread.role)}</>}
           </div>
           <Button variant="ghost" size="icon"><MoreVertical className="h-5 w-5" /></Button>
         </div>
 
-        {/* Messages */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {isLoading ? (
-            <div className="space-y-4">
-              <div className="flex justify-end"><Skeleton className="h-16 w-1/2 rounded-2xl rounded-tr-sm" /></div>
-              <div className="flex"><Skeleton className="h-32 w-2/3 rounded-2xl rounded-tl-sm" /></div>
-            </div>
-          ) : (
-            thread?.messages?.map((msg) => {
-              const isUser = msg.role === "user";
-              return (
-                <div key={msg.id} className={`flex gap-4 ${isUser ? "flex-row-reverse" : "flex-row"}`}>
-                  <div className={`shrink-0 h-8 w-8 rounded-full flex items-center justify-center ${isUser ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
-                    {isUser ? <UserIcon className="h-5 w-5" /> : <Bot className="h-5 w-5" />}
-                  </div>
-                  <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${isUser ? "bg-primary text-primary-foreground rounded-tr-sm" : "bg-muted border border-border rounded-tl-sm"}`}>
-                    {!isUser && thread?.role && (
-                      <div className="text-xs font-medium text-muted-foreground mb-1 capitalize">
-                        {thread.role} Agent
-                      </div>
-                    )}
-                    <div className="whitespace-pre-wrap text-sm leading-relaxed">{msg.content}</div>
-                  </div>
-                </div>
-              );
-            })
-          )}
-          {sendMessage.isPending && (
-             <div className="flex gap-4">
-                <div className="shrink-0 h-8 w-8 rounded-full flex items-center justify-center bg-muted text-muted-foreground">
-                  <Bot className="h-5 w-5" />
-                </div>
-                <div className="bg-muted border border-border rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-1">
-                  <div className="w-2 h-2 rounded-full bg-muted-foreground animate-bounce"></div>
-                  <div className="w-2 h-2 rounded-full bg-muted-foreground animate-bounce [animation-delay:0.2s]"></div>
-                  <div className="w-2 h-2 rounded-full bg-muted-foreground animate-bounce [animation-delay:0.4s]"></div>
-                </div>
-             </div>
-          )}
+          {isLoading ? <div className="space-y-4"><div className="flex justify-end"><Skeleton className="h-16 w-1/2 rounded-2xl rounded-tr-sm" /></div><div className="flex"><Skeleton className="h-32 w-2/3 rounded-2xl rounded-tl-sm" /></div></div> : thread?.messages?.map((msg) => {
+            const isUser = msg.role === "user";
+            return (<div key={msg.id} className={`flex gap-4 ${isUser ? "flex-row-reverse" : "flex-row"}`}><div className={`shrink-0 h-8 w-8 rounded-full flex items-center justify-center ${isUser ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>{isUser ? <UserIcon className="h-5 w-5" /> : <Bot className="h-5 w-5" />}</div><div className={`max-w-[80%] rounded-2xl px-4 py-3 ${isUser ? "bg-primary text-primary-foreground rounded-tr-sm" : "bg-muted border border-border rounded-tl-sm"}`}>{!isUser && (thread?.thread?.role || thread?.role) && <div className="text-xs font-medium text-muted-foreground mb-1 capitalize">{(thread.thread?.role || thread.role)} Agent</div>}<div className="whitespace-pre-wrap text-sm leading-relaxed">{msg.content}</div></div></div>);
+          })}
+          {sendMessage.isPending && <div className="flex gap-4"><div className="shrink-0 h-8 w-8 rounded-full flex items-center justify-center bg-muted text-muted-foreground"><Bot className="h-5 w-5" /></div><div className="bg-muted border border-border rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-muted-foreground animate-bounce"></div><div className="w-2 h-2 rounded-full bg-muted-foreground animate-bounce [animation-delay:0.2s]"></div><div className="w-2 h-2 rounded-full bg-muted-foreground animate-bounce [animation-delay:0.4s]"></div></div></div>}
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input */}
-        <div className="p-4 border-t border-border bg-background">
-          <div className="relative">
-            <Textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Type your message..."
-              className="min-h-[60px] max-h-[200px] pr-12 resize-none"
-              disabled={isLoading || sendMessage.isPending}
-            />
-            <Button 
-              size="icon" 
-              className="absolute right-2 bottom-2 h-8 w-8"
-              onClick={handleSend}
-              disabled={!input.trim() || isLoading || sendMessage.isPending}
-            >
-              <Send className="h-4 w-4" />
-            </Button>
-          </div>
-          <div className="text-center mt-2 text-xs text-muted-foreground">
-            Press Enter to send, Shift+Enter for newline
-          </div>
-        </div>
+        <div className="p-4 border-t border-border bg-background"><div className="relative"><Textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown} placeholder="Type your message..." className="min-h-[60px] max-h-[200px] pr-12 resize-none" disabled={isLoading || sendMessage.isPending} /><Button size="icon" className="absolute right-2 bottom-2 h-8 w-8" onClick={handleSend} disabled={!input.trim() || isLoading || sendMessage.isPending}><Send className="h-4 w-4" /></Button></div><div className="text-center mt-2 text-xs text-muted-foreground">Press Enter to send, Shift+Enter for newline</div></div>
       </div>
     </AppLayout>
   );
