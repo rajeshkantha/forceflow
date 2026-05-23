@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ClerkProvider, SignIn, SignUp, Show, useClerk, useUser } from '@clerk/react';
+import { ClerkProvider, SignIn, SignUp, useClerk, useUser } from '@clerk/react';
 import { publishableKeyFromHost } from '@clerk/react/internal';
 import { shadcn } from '@clerk/themes';
 import { Switch, Route, useLocation, Router as WouterRouter, Redirect } from 'wouter';
@@ -11,7 +11,11 @@ import { useGetTenant } from "@workspace/api-client-react";
 import LandingPage from "./pages/landing";
 import NotFound from "./pages/not-found";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { staleTime: 30_000, retry: 1 },
+  },
+});
 
 const clerkPubKey = publishableKeyFromHost(
   window.location.hostname,
@@ -22,12 +26,9 @@ const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 function stripBase(path: string): string {
-  return basePath && path.startsWith(basePath)
-    ? path.slice(basePath.length) || "/"
-    : path;
+  return basePath && path.startsWith(basePath) ? path.slice(basePath.length) || "/" : path;
 }
 
-// ClerkQueryClientCacheInvalidator clears queryClient cache on user change
 function ClerkQueryClientCacheInvalidator() {
   const { addListener } = useClerk();
   const queryClient = useQueryClient();
@@ -45,7 +46,6 @@ function ClerkQueryClientCacheInvalidator() {
   return null;
 }
 
-// SignInPage and SignUpPage — center on screen
 function SignInPage() {
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4">
@@ -53,6 +53,7 @@ function SignInPage() {
     </div>
   );
 }
+
 function SignUpPage() {
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4">
@@ -61,7 +62,6 @@ function SignUpPage() {
   );
 }
 
-// clerkAppearance: fill in the "..." with values that match the app theme you design
 const clerkAppearance = {
   theme: shadcn,
   cssLayerName: "clerk",
@@ -94,20 +94,17 @@ const clerkAppearance = {
     footerActionLink: "text-primary hover:text-primary/90 font-medium",
     footerActionText: "text-muted-foreground",
     dividerText: "text-muted-foreground bg-card",
-    identityPreviewEditButton: "text-primary hover:text-primary/90",
     formFieldSuccessText: "text-emerald-500",
     alertText: "text-foreground",
     logoBox: "flex justify-center mb-6",
     logoImage: "h-10",
     socialButtonsBlockButton: "border-border hover:bg-muted text-foreground",
     formButtonPrimary: "bg-primary text-primary-foreground hover:bg-primary/90",
-    formFieldInput: "bg-input border-border text-foreground focus:ring-primary focus:border-primary",
+    formFieldInput: "bg-input border-border text-foreground",
     footerAction: "justify-center",
     dividerLine: "bg-border",
     alert: "bg-destructive/10 border-destructive/20 text-foreground",
-    otpCodeFieldInput: "bg-input border-border text-foreground focus:ring-primary focus:border-primary",
-    formFieldRow: "mb-4",
-    main: "gap-6",
+    otpCodeFieldInput: "bg-input border-border text-foreground",
   },
 };
 
@@ -124,9 +121,7 @@ function HomeRedirect() {
   }
 
   if (isSignedIn) {
-    if (isTenantError || !tenant) {
-      return <Redirect to="/onboarding" />;
-    }
+    if (isTenantError || !tenant) return <Redirect to="/onboarding" />;
     return <Redirect to="/dashboard" />;
   }
 
@@ -143,9 +138,9 @@ import {
   ChatPage,
   PipelinesPage,
   PipelineDetailPage,
-  AnalysesPage
+  AnalysesPage,
+  SettingsPage,
 } from "./pages";
-
 
 function ClerkProviderWithRoutes() {
   const [, setLocation] = useLocation();
@@ -158,7 +153,7 @@ function ClerkProviderWithRoutes() {
       signUpUrl={`${basePath}/sign-up`}
       localization={{
         signIn: { start: { title: "Welcome back to ForceFlow", subtitle: "Sign in to your workspace" } },
-        signUp: { start: { title: "Create your account", subtitle: "Set up your ForceFlow workspace" } },
+        signUp: { start: { title: "Create your ForceFlow account", subtitle: "Set up your Salesforce command center" } },
       }}
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
@@ -179,6 +174,7 @@ function ClerkProviderWithRoutes() {
           <Route path="/pipelines" component={PipelinesPage} />
           <Route path="/pipelines/:runId" component={PipelineDetailPage} />
           <Route path="/analyses" component={AnalysesPage} />
+          <Route path="/settings" component={SettingsPage} />
           <Route component={NotFound} />
         </Switch>
       </QueryClientProvider>
