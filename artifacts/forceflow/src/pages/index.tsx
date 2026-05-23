@@ -1,25 +1,11 @@
-import { Switch, Route } from "wouter";
-import { AppLayout } from "@/components/app-layout";
-import DashboardPage from "./dashboard";
-import OrgsPage from "./orgs";
-import TeamPage from "./team";
-import ModelsPage from "./models";
-import ChatListPage from "./chat-list";
-import ChatPage from "./chat";
-import PipelinesPage from "./pipelines";
-import PipelineDetailPage from "./pipeline-detail";
-import AnalysesPage from "./analyses";
-import OnboardingPage from "./onboarding";
-
-export {
-  DashboardPage,
-  OrgsPage,
-  TeamPage,
-  ModelsPage,
-  ChatListPage,
-  ChatPage,
-  PipelinesPage,
-  PipelineDetailPage,
-  AnalysesPage,
-  OnboardingPage
-};
+export { default as DashboardPage } from "./dashboard";
+export { default as OrgsPage } from "./orgs";
+export { default as TeamPage } from "./team";
+export { default as ModelsPage } from "./models";
+export { default as ChatListPage } from "./chat-list";
+export { default as ChatPage } from "./chat";
+export { default as PipelinesPage } from "./pipelines";
+export { default as PipelineDetailPage } from "./pipeline-detail";
+export { default as AnalysesPage } from "./analyses";
+export { default as OnboardingPage } from "./onboarding";
+export { default as SettingsPage } from "./settings";
