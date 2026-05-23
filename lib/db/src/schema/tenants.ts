@@ -4,7 +4,7 @@ import { z } from "zod/v4";
 
 export const tenantsTable = pgTable("tenants", {
   id: uuid("id").primaryKey().defaultRandom(),
-  name: text("name").notNull(),
+  name: text("name").notNull().unique(),
   slug: text("slug").unique(),
   website: text("website"),
   industry: text("industry"),

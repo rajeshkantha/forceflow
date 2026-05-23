@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, tenantsTable, tenantMembersTable, tenantInvitesTable, salesforceOrgsTable, modelConfigsTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, ilike } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/requireAuth";
 import crypto from "crypto";
 
@@ -34,6 +34,18 @@ router.post("/onboarding/complete", requireAuth, async (req, res) => {
 
   if (existing.length > 0) {
     res.status(400).json({ error: "User already belongs to a tenant" });
+    return;
+  }
+
+  // Check workspace name uniqueness (case-insensitive)
+  const nameTaken = await db
+    .select({ id: tenantsTable.id })
+    .from(tenantsTable)
+    .where(ilike(tenantsTable.name, company.name.trim()))
+    .limit(1);
+
+  if (nameTaken.length > 0) {
+    res.status(409).json({ error: "Workspace name already taken. Please choose a different one." });
     return;
   }
 
