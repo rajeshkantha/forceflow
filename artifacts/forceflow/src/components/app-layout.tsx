@@ -37,7 +37,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const [location] = useLocation();
   const { user, isLoaded, isSignedIn } = useUser();
   const { signOut } = useClerk();
-  const { data: tenant, isLoading: isTenantLoading } = useGetTenant();
+  const { data: tenant, isLoading: isTenantLoading, isError: isTenantError } = useGetTenant();
 
   if (!isLoaded) {
     return (
@@ -49,6 +49,11 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   if (!isSignedIn) {
     return <Redirect to="/sign-in" />;
+  }
+
+  // If tenant fetch failed (no tenant/onboarding not done), redirect to onboarding
+  if (!isTenantLoading && isTenantError) {
+    return <Redirect to="/onboarding" />;
   }
 
   const NavContent = () => (
@@ -96,7 +101,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             Settings
           </div>
         </Link>
-        
+
         <div className="flex items-center justify-between rounded-md p-2 bg-card border border-border">
           <div className="flex items-center gap-3 overflow-hidden">
             <Avatar className="h-8 w-8">

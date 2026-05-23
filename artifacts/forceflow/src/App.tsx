@@ -1,11 +1,12 @@
 import { useEffect, useRef } from "react";
-import { ClerkProvider, SignIn, SignUp, Show, useClerk } from '@clerk/react';
+import { ClerkProvider, SignIn, SignUp, Show, useClerk, useUser } from '@clerk/react';
 import { publishableKeyFromHost } from '@clerk/react/internal';
 import { shadcn } from '@clerk/themes';
 import { Switch, Route, useLocation, Router as WouterRouter, Redirect } from 'wouter';
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useGetTenant } from "@workspace/api-client-react";
 
 import LandingPage from "./pages/landing";
 import NotFound from "./pages/not-found";
@@ -111,16 +112,25 @@ const clerkAppearance = {
 };
 
 function HomeRedirect() {
-  return (
-    <>
-      <Show when="signed-in">
-        <Redirect to="/dashboard" />
-      </Show>
-      <Show when="signed-out">
-        <LandingPage />
-      </Show>
-    </>
-  );
+  const { isSignedIn, isLoaded } = useUser();
+  const { data: tenant, isLoading: isTenantLoading, isError: isTenantError } = useGetTenant();
+
+  if (!isLoaded || (isSignedIn && isTenantLoading)) {
+    return (
+      <div className="flex min-h-[100dvh] items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (isSignedIn) {
+    if (isTenantError || !tenant) {
+      return <Redirect to="/onboarding" />;
+    }
+    return <Redirect to="/dashboard" />;
+  }
+
+  return <LandingPage />;
 }
 
 import {

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, Cpu, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Empty } from "@/components/ui/empty";
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 
 export default function ModelsPage() {
   const { data: models, isLoading } = useListModelConfigs();
@@ -24,7 +24,7 @@ export default function ModelsPage() {
         {isLoading ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">{[1,2,3].map(i => <Skeleton key={i} className="h-48" />)}</div>
         ) : !models?.length ? (
-          <Empty title="No Models Connected" description="Add an AI model config to start using ForceFlow agents." />
+          <Empty><EmptyHeader><EmptyTitle>No Models Connected</EmptyTitle><EmptyDescription>Add an AI model config to start using ForceFlow agents.</EmptyDescription></EmptyHeader></Empty>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {models.map((model) => (

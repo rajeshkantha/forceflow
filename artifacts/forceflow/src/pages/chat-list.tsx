@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, MessageSquare, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
-import { Empty } from "@/components/ui/empty";
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 
 export default function ChatListPage() {
   const { data: threads, isLoading } = useListThreads();
@@ -54,7 +54,7 @@ export default function ChatListPage() {
         </div>
 
         <div className="flex-1 flex items-center justify-center bg-background/50">
-          <Empty title="ForceFlow AI Agents" description="Select a conversation from the sidebar or start a new one." />
+          <Empty><EmptyHeader><EmptyTitle>ForceFlow AI Agents</EmptyTitle><EmptyDescription>Select a conversation from the sidebar or start a new one.</EmptyDescription></EmptyHeader></Empty>
         </div>
       </div>
     </AppLayout>

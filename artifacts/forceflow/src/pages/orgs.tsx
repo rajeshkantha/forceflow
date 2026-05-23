@@ -5,12 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Empty } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getListOrgsQueryKey, useCreateOrg, useDeleteOrg, useListOrgs, useReconnectOrg } from "@workspace/api-client-react";
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { Cloud, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 
@@ -106,7 +106,7 @@ export default function OrgsPage() {
             {[1, 2, 3].map((i) => <Skeleton key={i} className="h-56" />)}
           </div>
         ) : !orgs?.length ? (
-          <Empty title="No Orgs Connected" description="Connect your first Salesforce org to start managing multiple environments." />
+          <Empty><EmptyHeader><EmptyTitle>No Orgs Connected</EmptyTitle><EmptyDescription>Connect your first Salesforce org to start managing multiple environments.</EmptyDescription></EmptyHeader></Empty>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {orgs.map((org) => (
